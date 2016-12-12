@@ -6,17 +6,18 @@ $(document).ready(function(){
 
 		console.log(message);
 
-		 $(function(){
-	        new PNotify({
-	            title: 'Error',
-	            text: message,
-	            type: 'error',
-                desktop: {
-                    desktop: true
-                }
-	        });
-         });
-
+		if(PNotify){
+			 $(function(){
+				new PNotify({
+					title: 'Error',
+					text: message,
+					type: 'error',
+					desktop: {
+						desktop: true
+					}
+				});
+			 });
+		}
 	}
 
 

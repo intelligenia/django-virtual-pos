@@ -43,10 +43,10 @@ VPOS_TYPES = (
 
 ## Relación entre tipos de TPVs y clases delegadas
 VPOS_CLASSES = {
-    "ceca": "VirtualPOSCeca",
-    "redsys": "VirtualPOSRedsys",
-    "paypal": "VirtualPOSPaypal",
-    "santanderelavon": "VirtualPOSSantanderElavon",
+    "ceca": "VPOSCeca",
+    "redsys": "VPOSRedsys",
+    "paypal": "VPOSPaypal",
+    "santanderelavon": "VPOSSantanderElavon",
 }
 
 
@@ -76,7 +76,7 @@ def get_delegated_class(virtualpos_type):
 ####################################################################
 ## Opciones del campo STATUS
 ## STATUS: estado en el que se encuentra la operación de pago
-STATUS_CHOICES = (
+VPOS_STATUS_CHOICES = (
     ("pending", _(u"Pending")),
     ("completed", _(u"Completed")),
     ("failed", _(u"Failed")),
@@ -103,16 +103,20 @@ class VPOSPaymentOperation(models.Model):
                                          verbose_name="POST enviado por la pasarela bancaria al confirmar la compra.")
     sale_code = models.CharField(max_length=512, null=False, blank=False, verbose_name=u"Código de la venta",
                                  help_text=u"Código de la venta según la aplicación.")
-    status = models.CharField(max_length=64, choices=STATUS_CHOICES, null=False, blank=False,
+    status = models.CharField(max_length=64, choices=VPOS_STATUS_CHOICES, null=False, blank=False,
                               verbose_name=u"Estado del pago")
 
     creation_datetime = models.DateTimeField(verbose_name="Fecha de creación del objeto")
     last_update_datetime = models.DateTimeField(verbose_name="Fecha de última actualización del objeto")
 
     type = models.CharField(max_length=16, choices=VPOS_TYPES, default="", verbose_name="Tipo de TPV")
-    vpos = models.ForeignKey("VPOS", parent_link=True, related_name="+", null=False)
+    virtual_point_of_sale = models.ForeignKey("VirtualPointOfSale", parent_link=True, related_name="+", null=False)
 
-    ####################################################################
+
+    @property
+    def vpos(self):
+        return self.virtual_point_of_sale
+
     ## Guarda el objeto en BD, en realidad lo único que hace es actualizar los datetimes
     def save(self, *args, **kwargs):
         """
@@ -149,7 +153,7 @@ class VPOSCantCharge(Exception): pass
 ## Clase que contiene las operaciones de pago de forma genérica
 ## actúa de fachada de forma que el resto del software no conozca
 ## 
-class VPOS(models.Model):
+class VirtualPointOfSale(models.Model):
     """
     Clases que actúa como clase base para la relación de especialización.
 
@@ -281,7 +285,7 @@ class VPOS(models.Model):
     ## Obtiene un objeto TPV a partir de una serie de filtros
     @staticmethod
     def get(**kwargs):
-        vpos = VPOS.objects.get(**kwargs)
+        vpos = VirtualPointOfSale.objects.get(**kwargs)
         vpos._init_delegated()
         return vpos
 
@@ -315,7 +319,7 @@ class VPOS(models.Model):
         # (se guarda cuando se tenga el número de operación)
         self.operation = VPOSPaymentOperation(
             amount=amount, description=description, url_ok=url_ok, url_nok=url_nok,
-            sale_code=sale_code, status="pending", vpos=self, type=self.type
+            sale_code=sale_code, status="pending", virtual_point_of_sale=self, type=self.type
         )
 
         # Configuración específica (requiere que exista self.operation)
@@ -337,7 +341,7 @@ class VPOS(models.Model):
         stored_operations = VPOSPaymentOperation.objects.filter(
             sale_code=self.operation.sale_code,
             status="pending",
-            vpos_id=self.operation.vpos_id
+			virtual_point_of_sale_id=self.operation.virtual_point_of_sale_id
         )
         if stored_operations.count() >= 1:
             self.operation = stored_operations[0]
@@ -460,7 +464,7 @@ class VPOS(models.Model):
 ########################################################################################################################
 ########################################################################################################################
 
-class VPOSCeca(VPOS):
+class VPOSCeca(VirtualPointOfSale):
     """Información de configuración del TPV Virtual CECA"""
 
     regex_number = re.compile("^\d*$")
@@ -470,7 +474,7 @@ class VPOSCeca(VPOS):
     # Al poner el signo "+" como "related_name" evitamos que desde el padre
     # se pueda seguir la relación hasta aquí (ya que cada uno de las clases
     # que heredan de ella estará en una tabla y sería un lío).
-    parent = models.OneToOneField(VPOS, parent_link=True, related_name="+", null=False, db_column="vpos_id")
+    parent = models.OneToOneField(VirtualPointOfSale, parent_link=True, related_name="+", null=False, db_column="vpos_id")
 
     # Identifica al comercio, será facilitado por la caja en el proceso de alta
     merchant_id = models.CharField(max_length=9, null=False, blank=False, verbose_name="MerchantID",
@@ -566,7 +570,7 @@ class VPOSCeca(VPOS):
         self.url = self.CECA_URL[self.parent.environment]
 
         # Formato para Importe: según ceca, ha de tener un formato de entero positivo
-        self.importe = "{0:.2f}".format(float(self.parent.operation.amount)).translate(None, ".")
+        self.importe = "{0:.2f}".format(float(self.parent.operation.amount)).replace(".", "")
 
         # Idioma de la pasarela, por defecto es español, tomamos
         # el idioma actual y le asignamos éste
@@ -652,7 +656,7 @@ class VPOSCeca(VPOS):
             operation.confirmation_code = request.POST.get("Referencia")
             operation.save()
             dlprint("Operation {0} actualizada en receiveConfirmation()".format(operation.operation_number))
-            vpos = operation.vpos
+            vpos = operation.virtual_point_of_sale
         except VPOSPaymentOperation.DoesNotExist:
             # Si no existe la operación, están intentando
             # cargar una operación inexistente
@@ -815,10 +819,10 @@ class VPOSCeca(VPOS):
 ########################################################################################################################
 ########################################################################################################################
 
-class VPOSRedsys(VPOS):
+class VPOSRedsys(VirtualPointOfSale):
     """Información de configuración del TPV Virtual Redsys"""
     ## Todo TPV tiene una relación con los datos generales del TPV
-    parent = models.OneToOneField(VPOS, parent_link=True, related_name="+", null=False, db_column="vpos_id")
+    parent = models.OneToOneField(VirtualPointOfSale, parent_link=True, related_name="+", null=False, db_column="vpos_id")
 
     # Expresión regular usada en la identificación del servidor
     regex_number = re.compile("^\d*$")
@@ -921,7 +925,7 @@ class VPOSRedsys(VPOS):
 
         # Formato para Importe: según redsys, ha de tener un formato de entero positivo, con las dos últimas posiciones
         # ocupadas por los decimales
-        self.importe = "{0:.2f}".format(float(self.parent.operation.amount)).translate(None, ".")
+        self.importe = "{0:.2f}".format(float(self.parent.operation.amount)).replace(".", "")
 
         # Idioma de la pasarela, por defecto es español, tomamos
         # el idioma actual y le asignamos éste
@@ -1051,7 +1055,7 @@ class VPOSRedsys(VPOS):
             operation.save()
             dlprint("Operation {0} actualizada en _receiveConfirmationHTTPPOST()".format(operation.operation_number))
 
-            vpos = operation.vpos
+            vpos = operation.virtual_point_of_sale
         except VPOSPaymentOperation.DoesNotExist:
             # Si no existe la operación, están intentando
             # cargar una operación inexistente
@@ -1109,7 +1113,7 @@ class VPOSRedsys(VPOS):
             operation.confirmation_code = ds_order
             operation.save()
             dlprint("Operation {0} actualizada en _receiveConfirmationSOAP()".format(operation.operation_number))
-            vpos = operation.vpos
+            vpos = operation.virtual_point_of_sale
         except VPOSPaymentOperation.DoesNotExist:
             # Si no existe la operación, están intentando
             # cargar una operación inexistente
@@ -1310,10 +1314,10 @@ class VPOSRedsys(VPOS):
 ########################################################################################################################
 ########################################################################################################################
 
-class VPOSPaypal(VPOS):
+class VPOSPaypal(VirtualPointOfSale):
     """Información de configuración del TPV Virtual PayPal """
     ## Todo TPV tiene una relación con los datos generales del TPV
-    parent = models.OneToOneField(VPOS, parent_link=True, related_name="+", null=False, db_column="vpos_id")
+    parent = models.OneToOneField(VirtualPointOfSale, parent_link=True, related_name="+", null=False, db_column="vpos_id")
 
     # nombre de usuario para la API de Paypal
     API_username = models.CharField(max_length=60, null=False, blank=False, verbose_name="API_username")
@@ -1500,7 +1504,7 @@ class VPOSPaypal(VPOS):
             operation.confirmation_code = request.POST.get("token")
             operation.save()
             dlprint("Operation {0} actualizada en receiveConfirmation()".format(operation.operation_number))
-            vpos = operation.vpos
+            vpos = operation.virtual_point_of_sale
         except VPOSPaymentOperation.DoesNotExist:
             # Si no existe la operación, están intentando
             # cargar una operación inexistente
@@ -1601,7 +1605,7 @@ class VPOSPaypal(VPOS):
 ########################################################################################################################
 ########################################################################################################################
 
-class VPOSSantanderElavon(VPOS):
+class VPOSSantanderElavon(VirtualPointOfSale):
     """Información de configuración del TPV Virtual CECA"""
 
     regex_clientid = re.compile("^[a-zA-Z0-9]*$")
@@ -1613,7 +1617,7 @@ class VPOSSantanderElavon(VPOS):
     # Al poner el signo "+" como "related_name" evitamos que desde el padre
     # se pueda seguir la relación hasta aquí (ya que cada uno de las clases
     # que heredan de ella estará en una tabla y sería un lío).
-    parent = models.OneToOneField(VPOS, parent_link=True, related_name="+", null=False, db_column="vpos_id")
+    parent = models.OneToOneField(VirtualPointOfSale, parent_link=True, related_name="+", null=False, db_column="vpos_id")
 
     # Identifica al comercio, será facilitado por la caja en el proceso de alta
     merchant_id = models.CharField(max_length=50, null=False, blank=False, verbose_name="MerchantID",
@@ -1694,7 +1698,7 @@ class VPOSSantanderElavon(VPOS):
         }
 
         # Formato para Importe: según las especificaciones, ha de tener un formato de entero positivo
-        self.amount = "{0:.2f}".format(float(self.parent.operation.amount)).translate(None, ".")
+        self.amount = "{0:.2f}".format(float(self.parent.operation.amount)).replace(".", "")
 
         # Timestamp con la hora local requerido por el servidor en formato AAAAMMDDHHMMSS
         self.timestamp = timezone.now().strftime("%Y%m%d%H%M%S")
@@ -1777,7 +1781,7 @@ class VPOSSantanderElavon(VPOS):
 
             operation.save()
             dlprint(u"Operation {0} actualizada en receiveConfirmation()".format(operation.operation_number))
-            vpos = operation.vpos
+            vpos = operation.virtual_point_of_sale
         except VPOSPaymentOperation.DoesNotExist:
             # Si no existe la operación, están intentando
             # cargar una operación inexistente
@@ -2008,7 +2012,7 @@ class VPOSSantanderElavon(VPOS):
         self.__init_encryption_key__()
         dlprint(u"Clave de cifrado es " + self.encryption_key)
 
-        amount = "{0:.2f}".format(float(self.parent.operation.amount)).translate(None, ".")
+        amount = "{0:.2f}".format(float(self.parent.operation.amount)).replace(".", "")
 
         signature1 = u"{timestamp}.{merchant_id}.{order_id}.{amount}.{currency}".format(
             merchant_id=self.merchant_id,
