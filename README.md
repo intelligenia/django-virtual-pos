@@ -59,14 +59,7 @@ $ pip install git+git://github.com/intelligenia/django-virtual-pos.git
 
 See this [manual/COMMON.md](manual) (currently only in Spanish).
 
-## Needed views
-### Create a sale summary view
-
-````python
-
-````
-
-### Create payment_confirm view
+## Needed models
 
 You will need to implement this skeleton view using your own **Payment** model.
 
@@ -78,6 +71,32 @@ This model has must have at least the following attributes:
 
 And the following methods:
  - **online_confirm**: mark the payment as paid.
+
+
+## Needed views
+### Sale summary view
+
+````python
+def payment_summary(request, payment_id):
+	"""
+	Load a Payment object and show a summary of its contents to the user.
+	"""
+
+	payment = get_object_or_404(Payment, id=payment_id, status="pending")
+	replacements = {
+		"payment": payment,
+		# ...
+	}
+	return render(request, '<sale summary template path>', replacements)
+
+````
+
+Note that this payment summary view should load a JS file called **set_payment_attributes.js**.
+
+This file is needed to set initial payment attributes according to which bank have the user selected.
+
+
+### Payment_confirm view
 
 ````python
 @csrf_exempt
@@ -126,7 +145,7 @@ def payment_confirmation(request, virtualpos_type):
 		return response
 ````
 
-### Create payment_ok view
+### Payment ok view
 
 ````python
 def payment_ok(request, sale_code):
@@ -143,7 +162,7 @@ def payment_ok(request, sale_code):
 	return render(request, '<payment_ok template>', {'context': context, 'payment': payment})
 ````
 
-### Create payment_cancel view
+### Payment cancel view
 
 ````python
 def payment_cancel(request, sale_code):
