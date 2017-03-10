@@ -106,6 +106,9 @@ class VPOSPaymentOperation(models.Model):
     status = models.CharField(max_length=64, choices=VPOS_STATUS_CHOICES, null=False, blank=False,
                               verbose_name=u"Estado del pago")
 
+    response_code = models.CharField(max_length=255, null=True, blank=False,
+                                     verbose_name=u"Código de respuesta con estado de aceptación o denegación de la operación.")
+
     creation_datetime = models.DateTimeField(verbose_name="Fecha de creación del objeto")
     last_update_datetime = models.DateTimeField(verbose_name="Fecha de última actualización del objeto")
 
@@ -341,7 +344,7 @@ class VirtualPointOfSale(models.Model):
         stored_operations = VPOSPaymentOperation.objects.filter(
             sale_code=self.operation.sale_code,
             status="pending",
-			virtual_point_of_sale_id=self.operation.virtual_point_of_sale_id
+            virtual_point_of_sale_id=self.operation.virtual_point_of_sale_id
         )
         if stored_operations.count() >= 1:
             self.operation = stored_operations[0]
@@ -838,13 +841,6 @@ class VPOSRedsys(VirtualPointOfSale):
     # Número de terminal que le asignará su banco
     terminal_id = models.CharField(max_length=3, null=False, blank=False, verbose_name="TerminalID")
 
-    # Clave de cifrado para el entorno de prueba
-    encryption_key_testing = models.CharField(max_length=20, null=True, default=None,
-                                              verbose_name="Encryption Key para el entorno de pruebas (OBSOLETO)")
-    # Clave de cifrado para el entorno de producción
-    encryption_key_production = models.CharField(max_length=20, null=True, default=None,
-                                                 verbose_name="Encryption Key para el entorno de producción (OBSOLETO)")
-
     # Clave de cifrado SHA-256 para el entorno de prueba
     encryption_key_testing_sha256 = models.CharField(max_length=64, null=True, default=None,
                                                      verbose_name="Encryption Key SHA-256 para el entorno de pruebas")
@@ -861,6 +857,48 @@ class VPOSRedsys(VirtualPointOfSale):
 
     # Clave que se va usar para esta operación
     encryption_key = None
+
+    # Códigos de respuesta
+    DS_RESPONSE_CODES = {
+        "0101": u"Tarjeta Caducada.",
+        "0102": u"Tarjeta en excepción transitoria o bajo sospecha de fraude.",
+        "0104": u"Operación no permitida para esa tarjeta o terminal.",
+        "0106": u"Intentos de PIN excedidos.",
+        "0116": u"Disponible Insuficiente.",
+        "0118": u"Tarjeta no Registrada.",
+        "0125": u"Tarjeta no efectiva.",
+        "0129": u"Código de seguridad (CVV2/CVC2) incorrecto.",
+        "0180": u"Tarjeta ajena al servicio.",
+        "0184": u"Error en la autenticación del titular.",
+        "0190": u"Denegación sin especificar motivo.",
+        "0191": u"Fecha de caducidad errónea.",
+        "0202": u"Tarjeta en excepción transitoria o bajo sospecha de fraude con retirada de tarjeta.",
+        "0904": u"Comercio no registrado en FUC.",
+        "0909": u"Error de sistema.",
+        "0912": u"Emisor no disponible.",
+        "0913": u"Pedido repetido.",
+        "0944": u"Sesión Incorrecta.",
+        "0950": u"Operación de devolución no permitida.",
+        "9064": u"Número de posiciones de la tarjeta incorrecto.",
+        "9078": u"No existe método de pago válido para esa tarjeta.",
+        "9093": u"Tarjeta no existente.",
+        "9094": u"Rechazo servidores internacionales.",
+        "9104": u"Comercio con “titular seguro” y titular sin clave de compra segura.",
+        "9218": u"El comercio no permite op. seguras por entrada /operaciones.",
+        "9253": u"Tarjeta no cumple el check-digit.",
+        "9256": u"El comercio no puede realizar preautorizaciones.",
+        "9257": u"Esta tarjeta no permite operativa de preautorizaciones.",
+        "9261": u"Operación detenida por superar el control de restricciones en la entrada al SIS.",
+        "9912": u"Emisor no disponible.",
+        "9913": u"Error en la confirmación que el comercio envía al TPV Virtual (solo aplicable en la opción de sincronización SOAP).",
+        "9914": u"Confirmación “KO” del comercio (solo aplicable en la opción de sincronización SOAP).",
+        "9915": u"A petición del usuario se ha cancelado el pago.",
+        "9928": u"Anulación de autorización en diferido realizada por el SIS (proceso batch).",
+        "9929": u"Anulación de autorización en diferido realizada por el comercio.",
+        "9997": u"Se está procesando otra transacción en SIS con la misma tarjeta.",
+        "9998": u"Operación en proceso de solicitud de datos de tarjeta.",
+        "9999": u"Operación que ha sido redirigida al emisor a autenticar.",
+    }
 
     # El TPV de RedSys consta de dos entornos en funcionamiento, uno para pruebas y otro para producción
     REDSYS_URL = {
@@ -1111,6 +1149,7 @@ class VPOSRedsys(VirtualPointOfSale):
             operation = VPOSPaymentOperation.objects.get(operation_number=ds_order)
             operation.confirmation_data = {"GET": "", "POST": xml_content}
             operation.confirmation_code = ds_order
+            operation.response_code = TpvRedsys._format_ds_response_code(ds_response)
             operation.save()
             dlprint("Operation {0} actualizada en _receiveConfirmationSOAP()".format(operation.operation_number))
             vpos = operation.virtual_point_of_sale
@@ -1306,6 +1345,25 @@ class VPOSRedsys(VirtualPointOfSale):
 
         dlprint("FIRMA {0}".format(signature))
         return signature
+
+    @staticmethod
+    def _format_ds_response_code(ds_response):
+        """
+        Formatea el mensaje asociado a un Ds_Response
+        :param ds_response: str  código Ds_Response
+        :return: unicode  mensaje formateado
+        """
+        if not ds_response:
+            return None
+
+        if len(ds_response) == 4 and ds_response.isdigit() and ds_response[:2] == "00":
+            message = u"Transacción autorizada para pagos y preautorizaciones."
+        else:
+            message = TpvRedsys.DS_RESPONSE_CODES.get(ds_response)
+
+        out = u"{0}. {1}".format(ds_response, message)
+
+        return out
 
 
 ########################################################################################################################
