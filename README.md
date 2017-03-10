@@ -32,7 +32,7 @@ Easy integration with PayPal.
 
 ## Requirements
 
-- Python 2.7
+- Python 2.7 (Python 3 not tested, contributors wanted!)
 - [Django](https://pypi.python.org/pypi/django)
 - [BeautifulSoup4](https://pypi.python.org/pypi/beautifulsoup4)
 - [lxml](https://pypi.python.org/pypi/lxml)
@@ -63,9 +63,20 @@ $ pip install git+git://github.com/intelligenia/django-virtual-pos.git
 ````
 
 
+### settings.py
+
+Add the application djangovirtualpos to your settings.py:
+
+````python
+INSTALLED_APPS = (
+	# ...
+	"djangovirtualpos",
+)
+````
+
 # Use
 
-See this [manual/COMMON.md](manual) (currently only in Spanish).
+See this [manual](manual/COMMON.md) (currently only in Spanish).
 
 ## Needed models
 
