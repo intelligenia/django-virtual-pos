@@ -58,9 +58,9 @@ setup(
     description="django-virtual-post is a module that abstracts the flow of paying in several virtual points of sale.",
     long_description=long_description,
     classifiers=[
-        'Development Status :: 1 - Alfa',
+        'Development Status :: 5 - Production/Stable',
         'Framework :: Django',
-        'License :: OSI Approved :: The MIT License (MIT)',
+        'License :: OSI Approved :: MIT License',
     ],
     license="MIT",
     keywords="virtual point-of-sale puchases online payments",
