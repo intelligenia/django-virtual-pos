@@ -46,7 +46,15 @@ $ pip install django beautifulsoup4 lxml pycrypto pytz
 ````
 
 ## Installation
-Type:
+
+
+### From PyPi
+
+````sh
+$ pip install django-virtual-pos
+````
+
+### From master branch
 
 Master branch will allways contain a working version of this module. 
 
