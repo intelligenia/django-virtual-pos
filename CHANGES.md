@@ -9,3 +9,6 @@ Django module that abstracts the flow of several virtual points of sale includin
   - [RedSyS](http://www.redsys.es/)
   - [Santander Elavon](https://www.santanderelavon.com/)
   - [CECA](http://www.cajasdeahorros.es/).
+
+## 1.1
+Minor changes in README.md.

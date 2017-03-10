@@ -45,7 +45,7 @@ for dirpath, dirnames, filenames in os.walk('.'):
 
 setup(
     name="django-virtual-pos",
-    version="1.0",
+    version="1.1",
     install_requires=[
         "django",
         "beautifulsoup4",
