@@ -252,7 +252,7 @@ class VirtualPointOfSale(models.Model):
     ####################################################################
     ## Obtiene el texto de ayuda del tipo del TPV
     def get_type_help(self):
-        return VPOS_TYPES[self.type]
+        return dict(VPOS_TYPES)[self.type]
 
     ####################################################################
     ## Devuelve el TPV específico
