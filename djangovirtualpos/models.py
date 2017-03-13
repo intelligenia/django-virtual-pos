@@ -216,6 +216,9 @@ class VirtualPointOfSale(models.Model):
         ordering = ['name']
         verbose_name = "virtual point of sale"
         verbose_name_plural = "virtual points of sale"
+        permissions = (
+            ("view_virtualpointofsale", "View Virtual Points of Sale"),
+        )
 
     def __unicode__(self):
         return self.name
@@ -250,6 +253,16 @@ class VirtualPointOfSale(models.Model):
     ## Obtiene el texto de ayuda del tipo del TPV
     def get_type_help(self):
         return VPOS_TYPES[self.type]
+
+    ####################################################################
+    ## Devuelve el TPV específico
+    @property
+    def specific_vpos(self):
+        delegated_class = get_delegated_class(self.type)
+        try:
+            return delegated_class.objects.get(parent_id=self.id)
+        except delegated_class.DoesNotExist as e:
+            raise ValueError(u" No existe ningún vpos del tipo {0} con el identificador {1}".format(self.type, self.id))
 
     ####################################################################
     ## Constructor: Inicializa el objeto TPV

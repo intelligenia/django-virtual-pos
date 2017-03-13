@@ -12,3 +12,7 @@ Django module that abstracts the flow of several virtual points of sale includin
 
 ## 1.1
 Minor changes in README.md.
+
+## 1.2
+- Add new permission view_virtualpointofsale to ease management.
+- Add method specificit_vpos in VirtualPointOfSale that returns the specific model object according to the VPOS type.
