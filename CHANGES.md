@@ -20,6 +20,6 @@ Minor changes in README.md.
 ## 1.3
 - Fixing get_type_help_bug
 
-## 1.4
+## 1.5
 - Adding environment to VPOSPaymentOperation
 - Changing labels in models
