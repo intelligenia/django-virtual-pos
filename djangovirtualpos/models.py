@@ -333,7 +333,8 @@ class VirtualPointOfSale(models.Model):
         # (se guarda cuando se tenga el número de operación)
         self.operation = VPOSPaymentOperation(
             amount=amount, description=description, url_ok=url_ok, url_nok=url_nok,
-            sale_code=sale_code, status="pending", virtual_point_of_sale=self, type=self.type
+            sale_code=sale_code, status="pending",
+            virtual_point_of_sale=self, type=self.type, environment=self.environment
         )
 
         # Configuración específica (requiere que exista self.operation)
