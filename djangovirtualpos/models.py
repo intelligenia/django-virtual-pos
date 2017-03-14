@@ -82,6 +82,12 @@ VPOS_STATUS_CHOICES = (
     ("failed", _(u"Failed")),
 )
 
+####################################################################
+## Tipos de estado del TPV
+VIRTUALPOS_STATE_TYPES = (
+    ("testing", "Pruebas"),
+    ("production", "Producción")
+)
 
 ####################################################################
 ## Operación de pago de TPV
@@ -114,7 +120,7 @@ class VPOSPaymentOperation(models.Model):
 
     type = models.CharField(max_length=16, choices=VPOS_TYPES, default="", verbose_name="Tipo de TPV")
     virtual_point_of_sale = models.ForeignKey("VirtualPointOfSale", parent_link=True, related_name="+", null=False)
-
+    environment = models.CharField(max_length=255, choices=VIRTUALPOS_STATE_TYPES, default="", blank=True, verbose_name="Entorno del TPV")
 
     @property
     def vpos(self):
@@ -135,14 +141,6 @@ class VPOSPaymentOperation(models.Model):
         self.last_update_datetime = localize_datetime(now_datetime)
         # Llamada al constructor del padre
         super(VPOSPaymentOperation, self).save(*args, **kwargs)
-
-
-####################################################################
-## Tipos de estado del TPV
-VIRTUALPOS_STATE_TYPES = (
-    ("testing", "Pruebas"),
-    ("production", "Producción")
-)
 
 
 ####################################################################
@@ -180,13 +178,13 @@ class VirtualPointOfSale(models.Model):
 
     ## Nombre del distribuidor del plan
     distributor_name = models.CharField(null=False, blank=True, max_length=512,
-                                        verbose_name="Razón social del distribuidor de entradas",
-                                        help_text="Razón social del distribuidor de entradas.")
+                                        verbose_name="Razón social del distribuidor",
+                                        help_text="Razón social del distribuidor.")
 
     ## CIF del organizador del plan
     distributor_cif = models.CharField(null=False, blank=True, max_length=150,
-                                       verbose_name="CIF del distribuidor de entradas",
-                                       help_text="C.I.F. del distribuidor de entradas.")
+                                       verbose_name="CIF del distribuidor",
+                                       help_text="C.I.F. del distribuidor.")
 
     ## Estado del TPV: por si es de pruebas o de producción
     environment = models.CharField(max_length=16, null=False, blank=False, choices=VIRTUALPOS_STATE_TYPES,
