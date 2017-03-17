@@ -23,3 +23,6 @@ Minor changes in README.md.
 ## 1.5
 - Adding environment to VPOSPaymentOperation
 - Changing labels in models
+
+## 1.6.1
+- Allow reverse relation VPOSPaymentOperation -> VirtualPointOfSale

@@ -119,7 +119,7 @@ class VPOSPaymentOperation(models.Model):
     last_update_datetime = models.DateTimeField(verbose_name="Fecha de última actualización del objeto")
 
     type = models.CharField(max_length=16, choices=VPOS_TYPES, default="", verbose_name="Tipo de TPV")
-    virtual_point_of_sale = models.ForeignKey("VirtualPointOfSale", parent_link=True, related_name="+", null=False)
+    virtual_point_of_sale = models.ForeignKey("VirtualPointOfSale", parent_link=True, related_name="payment_operations", null=False)
     environment = models.CharField(max_length=255, choices=VIRTUALPOS_STATE_TYPES, default="", blank=True, verbose_name="Entorno del TPV")
 
     @property
