@@ -1158,6 +1158,9 @@ class VPOSRedsys(VirtualPointOfSale):
         # Almacén de operaciones
         try:
             ds_order = root.xpath("//Message/Request/Ds_Order/text()")[0]
+            ds_authorisationcode = root.xpath("//Message/Request/Ds_AuthorisationCode/text()")[0]
+            ds_response = root.xpath("//Message/Request/Ds_Response/text()")[0]
+
             operation = VPOSPaymentOperation.objects.get(operation_number=ds_order)
             operation.confirmation_data = {"GET": "", "POST": xml_content}
             operation.confirmation_code = ds_order
