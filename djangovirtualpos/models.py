@@ -1161,7 +1161,7 @@ class VPOSRedsys(VirtualPointOfSale):
             operation = VPOSPaymentOperation.objects.get(operation_number=ds_order)
             operation.confirmation_data = {"GET": "", "POST": xml_content}
             operation.confirmation_code = ds_order
-            operation.response_code = TpvRedsys._format_ds_response_code(ds_response)
+            operation.response_code = VPOSRedsys._format_ds_response_code(ds_response)
             operation.save()
             dlprint("Operation {0} actualizada en _receiveConfirmationSOAP()".format(operation.operation_number))
             vpos = operation.virtual_point_of_sale
@@ -1371,7 +1371,7 @@ class VPOSRedsys(VirtualPointOfSale):
         if len(ds_response) == 4 and ds_response.isdigit() and ds_response[:2] == "00":
             message = u"Transacción autorizada para pagos y preautorizaciones."
         else:
-            message = TpvRedsys.DS_RESPONSE_CODES.get(ds_response)
+            message = VPOSRedsys.DS_RESPONSE_CODES.get(ds_response)
 
         out = u"{0}. {1}".format(ds_response, message)
 
