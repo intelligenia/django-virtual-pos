@@ -26,3 +26,6 @@ Minor changes in README.md.
 
 ## 1.6.1
 - Allow reverse relation VPOSPaymentOperation -> VirtualPointOfSale
+
+## 1.6.4
+- Include migrations.
