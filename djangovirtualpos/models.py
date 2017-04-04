@@ -1441,14 +1441,16 @@ class VPOSRedsys(VirtualPointOfSale):
         Implementación particular del mátodo de devolución para el TPV de Redsys.
         Se ocupa de preparar un mensaje http con los parámetros adecuados.
         Realizar la comunicación con los parámetros dados y la codificación necesaria.
-        Interpretar la respuesta HTML, buscando etiquetas DOM que informen si la operación se realiza correctamente o con error.
+        Interpretar la respuesta HTML, buscando etiquetas DOM que informen si la operación
+        se realiza correctamente o con error.
 
-        NOTA IMPORTANTE: La busqueda de etiquetas en el arbol DOM es sensible a posibles cambios en la plataforma Redsys, por lo tanto en caso
-        de no encontrar ninguna etiqueta de las posibles esperadas (noSePuedeRealizarOperacion o operacionAceptada), se lanza una excepción del tipo
-        'VPOSOperationException'.
+        NOTA IMPORTANTE: La busqueda de etiquetas en el arbol DOM es sensible a posibles cambios en la plataforma Redsys,
+        por lo tanto en caso de no encontrar ninguna etiqueta de las posibles esperadas
+        (noSePuedeRealizarOperacion o operacionAceptada), se lanza una excepción del tipo 'VPOSOperationException'.
 
-        Es responsibilidad del programador gestionar adecuadamente esta excepción desde la vista y en caso que se produzca,
-        avisar a los desarrolladores responsables del módulo 'DjangoVirtualPost' para su actualización.
+        Es responsibilidad del programador gestionar adecuadamente esta excepción desde la vista
+        y en caso que se produzca, avisar a los desarrolladores responsables del módulo 'DjangoVirtualPost'
+        para su actualización.
 
         :param payment_operation: Operación de pago asociada a la devolución.
         :param refund_amount: Cantidad de la devolución.
