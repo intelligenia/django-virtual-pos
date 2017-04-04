@@ -521,7 +521,8 @@ class VirtualPointOfSale(models.Model):
     ## TODO: Se implementa solo para Redsys
     def refund(self, operation_sale_code, refund_amount, description):
         """
-        1. Realiza las comprobaciones necesarias, para determinar si la operación es permitida, (en caso contrario se lanzan las correspondientes excepciones).
+        1. Realiza las comprobaciones necesarias, para determinar si la operación es permitida,
+           (en caso contrario se lanzan las correspondientes excepciones).
         2. Crea un objeto VPOSRefundOperation (con estado pendiente).
         3. Llama al delegado, que implementa las particularidades para la comunicación con el TPV concreto.
         4. Actualiza el estado del pago, según se encuentra 'parcialmente devuelto' o 'totalmente devuelto'.
