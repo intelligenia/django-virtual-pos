@@ -521,9 +521,11 @@ class VirtualPointOfSale(models.Model):
     ## TODO: Se implementa solo para Redsys
     def refund(self, operation_sale_code, refund_amount, description):
         """
-        1. Realiza configuración necesaria para realiza una devolución.
-
-        Antes de ello realiza las comprobaciones necesarias.
+        1. Realiza las comprobaciones necesarias, para determinar si la operación es permitida, (en caso contrario se lanzan las correspondientes excepciones).
+        2. Crea un objeto VPOSRefundOperation (con estado pendiente).
+        3. Llama al delegado, que implementa las particularidades para la comunicación con el TPV concreto.
+        4. Actualiza el estado del pago, según se encuentra 'parcialmente devuelto' o 'totalmente devuelto'.
+        5. Actualiza el estado de la devolución a 'completada' o 'fallada'.
 
         @param operation_sale_code: Código del pago que pretendemos reembolsar.
         @param refund_amount: Cantidad del pago que reembolsamos
