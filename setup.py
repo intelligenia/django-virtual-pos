@@ -52,6 +52,7 @@ setup(
         "lxml",
         "pycrypto",
         "pytz",
+        "requests"
     ],
     author="intelligenia S.L.",
     author_email="diego@intelligenia.es",
