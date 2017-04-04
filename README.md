@@ -204,7 +204,7 @@ def payment_cancel(request, sale_code):
 ### Refund view
 
 ````python
-def refund(request, tpv, payment_code, amount, ):
+def refund(request, tpv, payment_code, amount, description):
 	"""
 	:param request:
 	:param tpv: TPV Id
