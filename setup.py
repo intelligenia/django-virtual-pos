@@ -45,13 +45,14 @@ for dirpath, dirnames, filenames in os.walk('.'):
 
 setup(
     name="django-virtual-pos",
-    version="1.6.4",
+    version="1.6.5",
     install_requires=[
         "django",
         "beautifulsoup4",
         "lxml",
         "pycrypto",
         "pytz",
+        "requests"
     ],
     author="intelligenia S.L.",
     author_email="diego@intelligenia.es",

@@ -38,6 +38,7 @@ Easy integration with PayPal.
 - [lxml](https://pypi.python.org/pypi/lxml)
 - [pycrypto](https://pypi.python.org/pypi/pycrypto)
 - [Pytz](https://pypi.python.org/pypi/pytz)
+- [Requests](https://pypi.python.org/pypi/requests)
 
 
 Type:
@@ -198,6 +199,40 @@ def payment_cancel(request, sale_code):
 
 	context = {'pay_status': "Done", "request": request}
 	return render(request, '<payment_canceled template>', {'context': context, 'payment': payment})
+````
+
+### Refund view
+
+````python
+def refund(request, tpv, payment_code, amount, description):
+	"""
+	:param request:
+	:param tpv: TPV Id
+	:param payment_code: Payment code
+	:param amount: Refund Amount (Example 10.89).
+	:param description: Description of refund cause.
+	:return:
+	"""
+	
+	amount = Decimal(amount)
+	
+	try:
+		# Checking if the Point of Sale exists
+		tpv = VirtualPointOfSale.get(id=tpv)
+		# Checking if the Payment exists
+		payment = Payment.objects.get(code=payment_code, state="paid")
+		
+	except Payment.DoesNotExist as e:
+		return http_bad_request_response_json_error(message=u"Does not exist payment with code {0}".format(payment_code))
+	
+	refund_status = tpv.refund(payment_code, amount, description)
+	
+	if refund_status:
+		message = u"Refund successful"
+	else:
+		message = u"Refund with erros"
+
+	return http_response_json_ok(message)
 ````
 
 
