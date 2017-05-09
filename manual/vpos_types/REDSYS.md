@@ -57,22 +57,22 @@
 
 > Estos serán los valores que nos devuelve la pasarela de pago
 
- **Ds_Date:** Fecha de la transacción
- **Ds_Hour:** Hora de la transacción
- **Ds_Amount:** Importe de la venta, mismo valor que en la petición
- **Ds_Currency:** Tipo de moneda
- **Ds_Order:** Número de operación, mismo valor que en la petición 
- **Ds_MerchantCode:** Indica el código FUC del comercio, mismo valor que en la petición
- **Ds_Terminal:** Indica la terminal, , mismo valor que en la petición
- **Ds_Signature:** Firma enviada por RedSys, que más tarde compararemos con la generada por el comercio
- **Ds_Response:** Código que indica el tipo de transacción
- **Ds_MerchantData:** Información opcional enviada por el comercio en el formulario de pago
- **Ds_SecurePayment:** Indica: 0, si el pago es NO seguro; 1, si el pago es seguro
- **Ds_TransactionType:** Tipo de operación que se envió en el formulario de pago
- **Card_Country:** País de emisión de la tarjeta con la que se ha intentado realizar el pago
- **AuthorisationCode:** Código alfanumerico de autorización  asignado a la aprobación de la transacción
- **ConsumerLanguage:** El valor 0 indicará que no se ha determinado el idioma
- **Card_type:** Valores posibles: C - Crédito; D - Débito
+ - **Ds_Date:** Fecha de la transacción
+ - **Ds_Hour:** Hora de la transacción
+ - **Ds_Amount:** Importe de la venta, mismo valor que en la petición
+ - **Ds_Currency:** Tipo de moneda
+ - **Ds_Order:** Número de operación, mismo valor que en la petición 
+ - **Ds_MerchantCode:** Indica el código FUC del comercio, mismo valor que en la petición
+ - **Ds_Terminal:** Indica la terminal, , mismo valor que en la petición
+ - **Ds_Signature:** Firma enviada por RedSys, que más tarde compararemos con la generada por el comercio
+ - **Ds_Response:** Código que indica el tipo de transacción
+ - **Ds_MerchantData:** Información opcional enviada por el comercio en el formulario de pago
+ - **Ds_SecurePayment:** Indica: 0, si el pago es NO seguro; 1, si el pago es seguro
+ - **Ds_TransactionType:** Tipo de operación que se envió en el formulario de pago
+ - **Card_Country:** País de emisión de la tarjeta con la que se ha intentado realizar el pago
+ - **AuthorisationCode:** Código alfanumerico de autorización  asignado a la aprobación de la transacción
+ - **ConsumerLanguage:** El valor 0 indicará que no se ha determinado el idioma
+ - **Card_type:** Valores posibles: C - Crédito; D - Débito
  
 ---
 
@@ -98,3 +98,28 @@
 ```
 
 > En el TPV de REDSYS no habrá que enviar una respuesta como en CECA, de todas maneras nosotros enviamos una cadena vacia
+
+
+##### Devolución o reembolso de un pago.
+
+```python
+	def refund(self, operation_sale_code, refund_amount, description):
+```
+
+> Para ello se prepara una petición http con los siguientes campos:
+
+ - **Ds_Merchant_Amount:** Indica el importe de la devolución	
+ - **Ds_Merchant_Currency:** Indica el tipo de moneda a usar
+ - **Ds_Merchant_Order:** Indica el número de operacion, (que debe coincidir con el número de operación del pago realizado).
+ - **Ds_Merchant_ProductDescription:** Descripción de la devolución.	
+ - **Ds_Merchant_MerchantCode:** Código FUC asignado al comercio	
+ - **Ds_Merchant_UrlOK:** URL a la que se redirige al usuario en caso de operación OK (no es muy importante dado que al ser un proceso en backend no se llega a producir tal redicrección).
+ - **Ds_Merchant_UrlKO:** URL a la que se redirige al usuario en caso de que la operación NO haya sido satisfactoria, (misma circunstancia que la anterior)	 
+ - **Ds_Merchant_MerchantURL:** Obligatorio si se tiene confirmación online. 
+ - **Ds_Merchant_ConsumerLanguage:** Indica el valor del idioma	
+ - **Ds_Merchant_MerchantSignature:** Indica la firma generada por el comercio
+ - **Ds_Merchant_Terminal:** Indica el terminal
+ - **Ds_Merchant_SumTotal:** Representa la suma total de la devolución
+ - **Ds_Merchant_TransactionType:** Indica que tipo de transacción se utiliza, (para devoluciones usar **3**).
+ 
+ 

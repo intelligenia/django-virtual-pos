@@ -27,9 +27,11 @@
 import os
 from setuptools import setup, find_packages
 
-
-def read(*rnames):
-    return open(os.path.join(os.path.dirname(__file__), *rnames)).read()
+try:
+    import pypandoc
+    long_description = pypandoc.convert('README.md', 'rst')
+except(IOError, ImportError):
+    long_description = open('README.md').read()
 
 data_files = []
 for dirpath, dirnames, filenames in os.walk('.'):
@@ -43,25 +45,26 @@ for dirpath, dirnames, filenames in os.walk('.'):
 
 setup(
     name="django-virtual-pos",
-    version="1.0",
+    version="1.6.5",
     install_requires=[
         "django",
         "beautifulsoup4",
         "lxml",
         "pycrypto",
         "pytz",
+        "requests"
     ],
     author="intelligenia S.L.",
     author_email="diego@intelligenia.es",
     description="django-virtual-post is a module that abstracts the flow of paying in several virtual points of sale.",
-    long_description=(read('README.md') + '\n\n' + read('CHANGES.md')),
+    long_description=long_description,
     classifiers=[
-        'Development Status :: 1 - Alfa',
+        'Development Status :: 5 - Production/Stable',
         'Framework :: Django',
-        'License :: OSI Approved :: The MIT License (MIT)',
+        'License :: OSI Approved :: MIT License',
     ],
     license="MIT",
-    keywords="virtual point-of-sale puchases",
+    keywords="virtual point-of-sale puchases online payments",
     url='https://github.com/intelligenia/django-virtual-pos',
     packages=find_packages('.'),
     data_files=data_files,

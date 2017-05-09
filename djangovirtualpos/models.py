@@ -8,13 +8,16 @@ import cgi
 
 ###########################################
 # Sistema de depuración
+
 from bs4 import BeautifulSoup
 from debug import dlprint
+from django.core.exceptions import ObjectDoesNotExist
 
 from django.db import models
 
 from django.conf import settings
 from django.core.validators import MinLengthValidator, MaxLengthValidator, RegexValidator
+from django.db.models import Sum
 from django.http import HttpResponse
 from django.utils import timezone
 
@@ -33,6 +36,10 @@ import time
 from decimal import Decimal
 from djangovirtualpos.util import dictlist, localize_datetime
 from django.utils.translation import ugettext_lazy as _
+
+import requests
+from bs4 import BeautifulSoup
+
 
 VPOS_TYPES = (
     ("ceca", _("TPV Virtual - Confederación Española de Cajas de Ahorros (CECA)")),
@@ -80,8 +87,23 @@ VPOS_STATUS_CHOICES = (
     ("pending", _(u"Pending")),
     ("completed", _(u"Completed")),
     ("failed", _(u"Failed")),
+    ("partially_refunded", _(u"Partially Refunded")),
+    ("completely_refunded", _(u"Completely Refunded")),
 )
 
+VPOS_REFUND_STATUS_CHOICES = (
+    ("pending", _(u"Pending")),
+    ("completed", _(u"Completed")),
+    ("failed", _(u"Failed")),
+)
+
+
+####################################################################
+## Tipos de estado del TPV
+VIRTUALPOS_STATE_TYPES = (
+    ("testing", "Pruebas"),
+    ("production", "Producción")
+)
 
 ####################################################################
 ## Operación de pago de TPV
@@ -106,16 +128,39 @@ class VPOSPaymentOperation(models.Model):
     status = models.CharField(max_length=64, choices=VPOS_STATUS_CHOICES, null=False, blank=False,
                               verbose_name=u"Estado del pago")
 
+    response_code = models.CharField(max_length=255, null=True, blank=False,
+                                     verbose_name=u"Código de respuesta con estado de aceptación o denegación de la operación.")
+
     creation_datetime = models.DateTimeField(verbose_name="Fecha de creación del objeto")
     last_update_datetime = models.DateTimeField(verbose_name="Fecha de última actualización del objeto")
 
     type = models.CharField(max_length=16, choices=VPOS_TYPES, default="", verbose_name="Tipo de TPV")
-    virtual_point_of_sale = models.ForeignKey("VirtualPointOfSale", parent_link=True, related_name="+", null=False)
-
+    virtual_point_of_sale = models.ForeignKey("VirtualPointOfSale", parent_link=True, related_name="payment_operations", null=False)
+    environment = models.CharField(max_length=255, choices=VIRTUALPOS_STATE_TYPES, default="", blank=True, verbose_name="Entorno del TPV")
 
     @property
     def vpos(self):
         return self.virtual_point_of_sale
+
+    @property
+    def total_amount_refunded(self):
+        return self.refund_operations.filter(status='completed').aggregate(Sum('amount'))['amount__sum']
+
+    # Comprueba si un pago ha sido totalmente debuelto y cambia el estado en coherencias.
+    def compute_payment_refunded_status(self):
+
+        if self.total_amount_refunded == self.amount:
+            self.status = "completely_refunded"
+
+        elif self.total_amount_refunded < self.amount:
+            dlprint('Devolución parcial de pago.')
+            self.status = "partially_refunded"
+
+        elif self.total_amount_refunded > self.amount:
+            raise ValueError(u'ERROR. Este caso es imposible, no se puede reembolsar una cantidad superior al pago.')
+
+        self.save()
+
 
     ## Guarda el objeto en BD, en realidad lo único que hace es actualizar los datetimes
     def save(self, *args, **kwargs):
@@ -135,24 +180,22 @@ class VPOSPaymentOperation(models.Model):
 
 
 ####################################################################
-## Tipos de estado del TPV
-VIRTUALPOS_STATE_TYPES = (
-    ("testing", "Pruebas"),
-    ("production", "Producción")
-)
-
-
-####################################################################
 ####################################################################
 
 # Excepción para indicar que la operación charge ha devuelto una respuesta incorrecta o de fallo
 class VPOSCantCharge(Exception): pass
 
+# Excepción para indicar que no se ha implementado una operación para un tipo de TPV en particular.
+class VPOSOperationDontImplemented(Exception): pass
+
+# Cuando se produce un error al realizar una operación en concreto.
+class VPOSOperationException(Exception): pass
+
 
 ####################################################################
 ## Clase que contiene las operaciones de pago de forma genérica
 ## actúa de fachada de forma que el resto del software no conozca
-## 
+##
 class VirtualPointOfSale(models.Model):
     """
     Clases que actúa como clase base para la relación de especialización.
@@ -177,13 +220,13 @@ class VirtualPointOfSale(models.Model):
 
     ## Nombre del distribuidor del plan
     distributor_name = models.CharField(null=False, blank=True, max_length=512,
-                                        verbose_name="Razón social del distribuidor de entradas",
-                                        help_text="Razón social del distribuidor de entradas.")
+                                        verbose_name="Razón social del distribuidor",
+                                        help_text="Razón social del distribuidor.")
 
     ## CIF del organizador del plan
     distributor_cif = models.CharField(null=False, blank=True, max_length=150,
-                                       verbose_name="CIF del distribuidor de entradas",
-                                       help_text="C.I.F. del distribuidor de entradas.")
+                                       verbose_name="CIF del distribuidor",
+                                       help_text="C.I.F. del distribuidor.")
 
     ## Estado del TPV: por si es de pruebas o de producción
     environment = models.CharField(max_length=16, null=False, blank=False, choices=VIRTUALPOS_STATE_TYPES,
@@ -213,6 +256,9 @@ class VirtualPointOfSale(models.Model):
         ordering = ['name']
         verbose_name = "virtual point of sale"
         verbose_name_plural = "virtual points of sale"
+        permissions = (
+            ("view_virtualpointofsale", "View Virtual Points of Sale"),
+        )
 
     def __unicode__(self):
         return self.name
@@ -246,7 +292,17 @@ class VirtualPointOfSale(models.Model):
     ####################################################################
     ## Obtiene el texto de ayuda del tipo del TPV
     def get_type_help(self):
-        return VPOS_TYPES[self.type]
+        return dict(VPOS_TYPES)[self.type]
+
+    ####################################################################
+    ## Devuelve el TPV específico
+    @property
+    def specific_vpos(self):
+        delegated_class = get_delegated_class(self.type)
+        try:
+            return delegated_class.objects.get(parent_id=self.id)
+        except delegated_class.DoesNotExist as e:
+            raise ValueError(u" No existe ningún vpos del tipo {0} con el identificador {1}".format(self.type, self.id))
 
     ####################################################################
     ## Constructor: Inicializa el objeto TPV
@@ -319,7 +375,8 @@ class VirtualPointOfSale(models.Model):
         # (se guarda cuando se tenga el número de operación)
         self.operation = VPOSPaymentOperation(
             amount=amount, description=description, url_ok=url_ok, url_nok=url_nok,
-            sale_code=sale_code, status="pending", virtual_point_of_sale=self, type=self.type
+            sale_code=sale_code, status="pending",
+            virtual_point_of_sale=self, type=self.type, environment=self.environment
         )
 
         # Configuración específica (requiere que exista self.operation)
@@ -341,7 +398,7 @@ class VirtualPointOfSale(models.Model):
         stored_operations = VPOSPaymentOperation.objects.filter(
             sale_code=self.operation.sale_code,
             status="pending",
-			virtual_point_of_sale_id=self.operation.virtual_point_of_sale_id
+            virtual_point_of_sale_id=self.operation.virtual_point_of_sale_id
         )
         if stored_operations.count() >= 1:
             self.operation = stored_operations[0]
@@ -429,6 +486,8 @@ class VirtualPointOfSale(models.Model):
         # Devolvemos el cargo
         return response
 
+
+
     ####################################################################
     ## Paso 3.3b1. Error en verificación.
     ## No se ha podido recuperar la instancia de TPV de la respuesta del
@@ -456,6 +515,100 @@ class VirtualPointOfSale(models.Model):
         self.operation.save()
 
         return self.delegated.responseNok()
+
+    ####################################################################
+    ## Paso R. (Refund) Configura el TPV en modo devolución
+    ## TODO: Se implementa solo para Redsys
+    def refund(self, operation_sale_code, refund_amount, description):
+        """
+        1. Realiza las comprobaciones necesarias, para determinar si la operación es permitida,
+           (en caso contrario se lanzan las correspondientes excepciones).
+        2. Crea un objeto VPOSRefundOperation (con estado pendiente).
+        3. Llama al delegado, que implementa las particularidades para la comunicación con el TPV concreto.
+        4. Actualiza el estado del pago, según se encuentra 'parcialmente devuelto' o 'totalmente devuelto'.
+        5. Actualiza el estado de la devolución a 'completada' o 'fallada'.
+
+        @param operation_sale_code: Código del pago que pretendemos reembolsar.
+        @param refund_amount: Cantidad del pago que reembolsamos
+        @param description: Descripción del motivo por el cual se realiza la devolución.
+        """
+
+        try:
+            # Cargamos la operación sobre la que vamos a realizar la devolución.
+            payment_operation = VPOSPaymentOperation.objects.get(sale_code=operation_sale_code)
+        except ObjectDoesNotExist:
+            raise Exception(u"No se puede cargar una operación anterior con el código {0}".format(operation_sale_code))
+
+        if (not self.has_total_refunds) and (not self.has_partial_refunds):
+            raise Exception(u"El TPV no admite devoluciones, ni totales, ni parciales")
+
+        if refund_amount > payment_operation.amount:
+            raise Exception(u"Imposible reembolsar una cantidad superior a la del pago")
+
+        if (refund_amount < payment_operation.amount) and (not self.has_partial_refunds):
+            raise Exception(u"Configuración del TPV no permite realizar devoluciones parciales")
+
+        if (refund_amount == payment_operation.amount) and (not self.has_total_refunds):
+            raise Exception(u"Configuración del TPV no permite realizar devoluciones totales")
+
+        # Creamos la operación, marcandola como pendiente.
+        self.operation = VPOSRefundOperation(amount=refund_amount,
+                                             description=description,
+                                             operation_number=payment_operation.operation_number,
+                                             status='pending',
+                                             payment=payment_operation)
+
+        self.operation.save()
+
+        # Llamamos al delegado que implementa la funcionalidad en particular.
+        refund_response = self.delegated.refund(refund_amount, description)
+
+        if refund_response:
+            refund_status = 'completed'
+        else:
+            refund_status = 'failed'
+
+        self.operation.status = refund_status
+        self.operation.save()
+
+        # Calcula el nuevo estado del pago, en función de la suma de las devoluciones,
+        # (pudiendolo marcas como "completely_refunded" o "partially_refunded").
+        payment_operation.compute_payment_refunded_status()
+
+        return refund_response
+
+
+########################################################################################################################
+class VPOSRefundOperation(models.Model):
+    """
+    Entidad que gestiona las devoluciones de pagos realizados.
+    Las devoluciones pueden ser totales o parciales, por tanto un "pago" tiene una relación uno a muchos con "devoluciones".
+    """
+    amount = models.DecimalField(max_digits=6, decimal_places=2, null=False, blank=False, verbose_name=u"Cantidad de la devolución")
+    description = models.CharField(max_length=512, null=False, blank=False, verbose_name=u"Descripción de la devolución")
+
+    operation_number = models.CharField(max_length=255, null=False, blank=False, verbose_name=u"Número de operación")
+    status = models.CharField(max_length=64, choices=VPOS_REFUND_STATUS_CHOICES, null=False, blank=False, verbose_name=u"Estado de la devolución")
+    creation_datetime = models.DateTimeField(verbose_name="Fecha de creación del objeto")
+    last_update_datetime = models.DateTimeField(verbose_name="Fecha de última actualización del objeto")
+    payment = models.ForeignKey(VPOSPaymentOperation, on_delete=models.PROTECT, related_name="refund_operations")
+
+
+    ## Guarda el objeto en BD, en realidad lo único que hace es actualizar los datetimes
+    def save(self, *args, **kwargs):
+        """
+        Guarda el objeto en BD, en realidad lo único que hace es actualizar los datetimes.
+        El datetime de actualización se actualiza siempre, el de creación sólo al guardar de nuevas.
+        """
+        # Datetime con el momento actual en UTC
+        now_datetime = datetime.datetime.now()
+        # Si no se ha guardado aún, el datetime de creación es la fecha actual
+        if not self.id:
+            self.creation_datetime = localize_datetime(now_datetime)
+        # El datetime de actualización es la fecha actual
+        self.last_update_datetime = localize_datetime(now_datetime)
+        # Llamada al constructor del padre
+        super(VPOSRefundOperation, self).save(*args, **kwargs)
 
 
 ########################################################################################################################
@@ -753,6 +906,12 @@ class VPOSCeca(VirtualPointOfSale):
         return HttpResponse("")
 
     ####################################################################
+    ## Paso R. (Refund) Configura el TPV en modo devolución
+    ## TODO: No implementado
+    def refund(self, refund_amount, description):
+        raise VPOSOperationDontImplemented(u"No se ha implementado la operación de devolución particular para CECA.")
+
+    ####################################################################
     ## Generador de firma para el envío
     def _sending_signature(self):
         """Calcula la firma a incorporar en el formulario de pago"""
@@ -838,13 +997,6 @@ class VPOSRedsys(VirtualPointOfSale):
     # Número de terminal que le asignará su banco
     terminal_id = models.CharField(max_length=3, null=False, blank=False, verbose_name="TerminalID")
 
-    # Clave de cifrado para el entorno de prueba
-    encryption_key_testing = models.CharField(max_length=20, null=True, default=None,
-                                              verbose_name="Encryption Key para el entorno de pruebas (OBSOLETO)")
-    # Clave de cifrado para el entorno de producción
-    encryption_key_production = models.CharField(max_length=20, null=True, default=None,
-                                                 verbose_name="Encryption Key para el entorno de producción (OBSOLETO)")
-
     # Clave de cifrado SHA-256 para el entorno de prueba
     encryption_key_testing_sha256 = models.CharField(max_length=64, null=True, default=None,
                                                      verbose_name="Encryption Key SHA-256 para el entorno de pruebas")
@@ -861,6 +1013,48 @@ class VPOSRedsys(VirtualPointOfSale):
 
     # Clave que se va usar para esta operación
     encryption_key = None
+
+    # Códigos de respuesta
+    DS_RESPONSE_CODES = {
+        "0101": u"Tarjeta Caducada.",
+        "0102": u"Tarjeta en excepción transitoria o bajo sospecha de fraude.",
+        "0104": u"Operación no permitida para esa tarjeta o terminal.",
+        "0106": u"Intentos de PIN excedidos.",
+        "0116": u"Disponible Insuficiente.",
+        "0118": u"Tarjeta no Registrada.",
+        "0125": u"Tarjeta no efectiva.",
+        "0129": u"Código de seguridad (CVV2/CVC2) incorrecto.",
+        "0180": u"Tarjeta ajena al servicio.",
+        "0184": u"Error en la autenticación del titular.",
+        "0190": u"Denegación sin especificar motivo.",
+        "0191": u"Fecha de caducidad errónea.",
+        "0202": u"Tarjeta en excepción transitoria o bajo sospecha de fraude con retirada de tarjeta.",
+        "0904": u"Comercio no registrado en FUC.",
+        "0909": u"Error de sistema.",
+        "0912": u"Emisor no disponible.",
+        "0913": u"Pedido repetido.",
+        "0944": u"Sesión Incorrecta.",
+        "0950": u"Operación de devolución no permitida.",
+        "9064": u"Número de posiciones de la tarjeta incorrecto.",
+        "9078": u"No existe método de pago válido para esa tarjeta.",
+        "9093": u"Tarjeta no existente.",
+        "9094": u"Rechazo servidores internacionales.",
+        "9104": u"Comercio con “titular seguro” y titular sin clave de compra segura.",
+        "9218": u"El comercio no permite op. seguras por entrada /operaciones.",
+        "9253": u"Tarjeta no cumple el check-digit.",
+        "9256": u"El comercio no puede realizar preautorizaciones.",
+        "9257": u"Esta tarjeta no permite operativa de preautorizaciones.",
+        "9261": u"Operación detenida por superar el control de restricciones en la entrada al SIS.",
+        "9912": u"Emisor no disponible.",
+        "9913": u"Error en la confirmación que el comercio envía al TPV Virtual (solo aplicable en la opción de sincronización SOAP).",
+        "9914": u"Confirmación “KO” del comercio (solo aplicable en la opción de sincronización SOAP).",
+        "9915": u"A petición del usuario se ha cancelado el pago.",
+        "9928": u"Anulación de autorización en diferido realizada por el SIS (proceso batch).",
+        "9929": u"Anulación de autorización en diferido realizada por el comercio.",
+        "9997": u"Se está procesando otra transacción en SIS con la misma tarjeta.",
+        "9998": u"Operación en proceso de solicitud de datos de tarjeta.",
+        "9999": u"Operación que ha sido redirigida al emisor a autenticar.",
+    }
 
     # El TPV de RedSys consta de dos entornos en funcionamiento, uno para pruebas y otro para producción
     REDSYS_URL = {
@@ -1108,9 +1302,13 @@ class VPOSRedsys(VirtualPointOfSale):
         # Almacén de operaciones
         try:
             ds_order = root.xpath("//Message/Request/Ds_Order/text()")[0]
+            ds_authorisationcode = root.xpath("//Message/Request/Ds_AuthorisationCode/text()")[0]
+            ds_response = root.xpath("//Message/Request/Ds_Response/text()")[0]
+
             operation = VPOSPaymentOperation.objects.get(operation_number=ds_order)
             operation.confirmation_data = {"GET": "", "POST": xml_content}
             operation.confirmation_code = ds_order
+            operation.response_code = VPOSRedsys._format_ds_response_code(ds_response)
             operation.save()
             dlprint("Operation {0} actualizada en _receiveConfirmationSOAP()".format(operation.operation_number))
             vpos = operation.virtual_point_of_sale
@@ -1151,7 +1349,6 @@ class VPOSRedsys(VirtualPointOfSale):
     def verifyConfirmation(self):
         firma_calculada = self._verification_signature()
         dlprint("Firma calculada " + firma_calculada)
-
         dlprint("Firma recibida " + self.firma)
 
         # Traducir caracteres de la firma recibida '-' y '_' al alfabeto base64
@@ -1238,6 +1435,132 @@ class VPOSRedsys(VirtualPointOfSale):
             # que la operación ha sido negativa, pasamos una respuesta vacia
             return HttpResponse("")
 
+    def refund(self, refund_amount, description):
+
+        """
+        Implementación particular del mátodo de devolución para el TPV de Redsys.
+        Se ocupa de preparar un mensaje http con los parámetros adecuados.
+        Realizar la comunicación con los parámetros dados y la codificación necesaria.
+        Interpretar la respuesta HTML, buscando etiquetas DOM que informen si la operación
+        se realiza correctamente o con error.
+
+        NOTA IMPORTANTE: La busqueda de etiquetas en el arbol DOM es sensible a posibles cambios en la plataforma Redsys,
+        por lo tanto en caso de no encontrar ninguna etiqueta de las posibles esperadas
+        (noSePuedeRealizarOperacion o operacionAceptada), se lanza una excepción del tipo 'VPOSOperationException'.
+
+        Es responsibilidad del programador gestionar adecuadamente esta excepción desde la vista
+        y en caso que se produzca, avisar a los desarrolladores responsables del módulo 'DjangoVirtualPost'
+        para su actualización.
+
+        :param payment_operation: Operación de pago asociada a la devolución.
+        :param refund_amount: Cantidad de la devolución.
+        :param description: Motivo o comentario de la devolución.
+        :return: True | False según se complete la operación con éxito.
+        """
+
+        # Modificamos el tipo de operación para indicar que la transacción
+        # es de tipo devolución automática.
+        # URL de pago según el entorno
+        self.url = self.REDSYS_URL[self.parent.environment]
+
+        # IMPORTANTE: Este es el código de operación para hacer devoluciones.
+        self.transaction_type = 3
+
+        # Formato para Importe: según redsys, ha de tener un formato de entero positivo, con las dos últimas posiciones
+        # ocupadas por los decimales
+        self.importe = "{0:.2f}".format(float(refund_amount)).replace(".", "")
+
+        # Idioma de la pasarela, por defecto es español, tomamos
+        # el idioma actual y le asignamos éste
+        self.idioma = self.IDIOMAS["es"]
+        lang = translation.get_language()
+        if lang in self.IDIOMAS:
+            self.idioma = self.IDIOMAS[lang]
+
+        order_data = {
+            # Indica el importe de la venta
+            "DS_MERCHANT_AMOUNT": self.importe,
+
+            # Indica el número de operacion
+            "DS_MERCHANT_ORDER": self.parent.operation.operation_number,
+
+            # Código FUC asignado al comercio
+            "DS_MERCHANT_MERCHANTCODE": self.merchant_code,
+
+            # Indica el tipo de moneda a usar
+            "DS_MERCHANT_CURRENCY": self.tipo_moneda,
+
+            # Indica que tipo de transacción se utiliza
+            "DS_MERCHANT_TRANSACTIONTYPE": self.transaction_type,
+
+            # Indica el terminal
+            "DS_MERCHANT_TERMINAL": self.terminal_id,
+
+            # Obligatorio si se tiene confirmación online.
+            "DS_MERCHANT_MERCHANTURL": self.merchant_response_url,
+
+            # URL a la que se redirige al usuario en caso de que la venta haya sido satisfactoria
+            "DS_MERCHANT_URLOK": self.parent.operation.payment.url_ok,
+
+            # URL a la que se redirige al usuario en caso de que la venta NO haya sido satisfactoria
+            "DS_MERCHANT_URLKO": self.parent.operation.payment.url_nok,
+
+            # Se mostrará al titular en la pantalla de confirmación de la compra
+            "DS_MERCHANT_PRODUCTDESCRIPTION": description,
+
+            # Indica el valor del idioma
+            "DS_MERCHANT_CONSUMERLANGUAGE": self.idioma,
+
+            # Representa la suma total de los importes de las cuotas
+            "DS_MERCHANT_SUMTOTAL": self.importe,
+        }
+
+        json_order_data = json.dumps(order_data)
+        packed_order_data = base64.b64encode(json_order_data)
+
+        data = {
+            "Ds_SignatureVersion": "HMAC_SHA256_V1",
+            "Ds_MerchantParameters": packed_order_data,
+            "Ds_Signature": self._redsys_hmac_sha256_signature(packed_order_data)
+        }
+
+        headers = {'enctype': 'application/x-www-form-urlencoded'}
+
+        # Realizamos petición POST con los datos de la operación y las cabeceras necesarias.
+        refund_html_request = requests.post(self.url, data=data, headers=headers)
+
+        # En caso de tener una respuesta 200
+        if refund_html_request.status_code == 200:
+
+            # Iniciamos un objeto BeautifulSoup (para poder leer los elementos del DOM del HTML recibido).
+            html = BeautifulSoup(refund_html_request.text, "html.parser")
+
+            # Buscamos elementos significativos del DOM que nos indiquen si la operación se ha realizado correctamente o no.
+            refund_message_error = html.find('text', {'lngid': 'noSePuedeRealizarOperacion'})
+            refund_message_ok = html.find('text', {'lngid': 'operacionAceptada'})
+
+            # Cuando en el DOM del documento HTML aparece un mensaje de error.
+            if refund_message_error:
+                dlprint(refund_message_error)
+                dlprint(u'Error realizando la operación')
+                status = False
+
+            # Cuando en el DOM del documento HTML aparece un mensaje de ok.
+            elif refund_message_ok:
+                dlprint(u'Operación realizada correctamente')
+                dlprint(refund_message_error)
+                status = True
+
+            # No aparece mensaje de error ni de ok
+            else:
+                raise VPOSOperationException("La resupuesta HTML con la pantalla de devolución no muestra mensaje informado de forma expícita, si la operación se produce con éxito error, (revisar método 'VPOSRedsys.refund').")
+
+        # Respuesta HTTP diferente a 200
+        else:
+            status = False
+
+        return status
+
     ####################################################################
     ## Generador de firma de mensajes
     def _redsys_hmac_sha256_signature(self, data):
@@ -1306,6 +1629,25 @@ class VPOSRedsys(VirtualPointOfSale):
 
         dlprint("FIRMA {0}".format(signature))
         return signature
+
+    @staticmethod
+    def _format_ds_response_code(ds_response):
+        """
+        Formatea el mensaje asociado a un Ds_Response
+        :param ds_response: str  código Ds_Response
+        :return: unicode  mensaje formateado
+        """
+        if not ds_response:
+            return None
+
+        if len(ds_response) == 4 and ds_response.isdigit() and ds_response[:2] == "00":
+            message = u"Transacción autorizada para pagos y preautorizaciones."
+        else:
+            message = VPOSRedsys.DS_RESPONSE_CODES.get(ds_response)
+
+        out = u"{0}. {1}".format(ds_response, message)
+
+        return out
 
 
 ########################################################################################################################
@@ -1597,6 +1939,13 @@ class VPOSPaypal(VirtualPointOfSale):
         # En Paypal no se exige una respuesta, por parte del comercio, para verificar
         # que la operación ha sido negativa, redireccionamos a la url de cancelación
         return redirect(reverse("payment_cancel_url", kwargs={"sale_code": self.parent.operation.sale_code}))
+
+
+    ####################################################################
+    ## Paso R. (Refund) Configura el TPV en modo devolución
+    ## TODO: No implementado
+    def refund(self, refund_amount, description):
+        raise VPOSOperationDontImplemented(u"No se ha implementado la operación de devolución particular para Paypal.")
 
 
 ########################################################################################################################
@@ -2004,6 +2353,13 @@ class VPOSSantanderElavon(VirtualPointOfSale):
                 </body>
             </html>
         """.format(self.parent.operation.url_nok))
+
+    ####################################################################
+    ## Paso R. (Refund) Configura el TPV en modo devolución
+    ## TODO: No implementado
+    def refund(self, refund_amount, description):
+        raise VPOSOperationDontImplemented(u"No se ha implementado la operación de devolución particular para Santander-Elavon.")
+
 
     ####################################################################
     ## Generador de firma para el envío POST al servicio "Redirect"

@@ -93,3 +93,6 @@ ENV/
 
 # MacOS thumbnails
 .DS_Store
+
+# Backup files
+*~
