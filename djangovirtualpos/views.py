@@ -36,7 +36,7 @@ def set_payment_attributes(request, sale_model, sale_ok_url, sale_nok_url):
         sale.virtual_point_of_sale = virtual_point_of_sale
         sale.save()
 
-    except Sale.DoesNotExist as e:
+    except ObjectDoesNotExist as e:
         return JsonResponse({"message":u"La orden de pago no ha sido previamente creada."}, status=404)
 
     except VirtualPointOfSale.DoesNotExist:
