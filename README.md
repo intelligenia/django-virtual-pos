@@ -86,11 +86,14 @@ You will need to implement this skeleton view using your own **Payment** model.
 This model has must have at least the following attributes:
  - **code**: sale code given by our system.
  - **operation_number**: bank operation number.
- - **status**: status of the payment: "paid", "pending" or "canceled".
+ - **status**: status of the payment: "paid", "pending" (**pending** is mandatory) or "canceled".
  - **amount**: amount to be charged.
 
 And the following methods:
  - **online_confirm**: mark the payment as paid.
+
+## Integration examples
+- [djshop](https://github.com/diegojromerolopez/djshop)
 
 
 ## Needed views
@@ -124,6 +127,9 @@ def payment_confirmation(request, virtualpos_type):
 	"""
 	This view will be called by the bank.
 	"""
+	# Directly call to confirm_payment view
+
+	# Or implement the following actions
 
 	# Checking if the Point of Sale exists
 	virtual_pos = VirtualPointOfSale.receiveConfirmation(request, virtualpos_type=virtualpos_type)

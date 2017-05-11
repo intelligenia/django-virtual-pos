@@ -3,6 +3,10 @@ Django module that abstracts the flow of several virtual points of sale includin
 
 # Releases
 
+## 1.6.6
+- Simplify integration.
+- Add example integration.
+
 ## 1.6.5
 - Add method to allow partial refund and full refund, specific to Redsys TPV Platform. 
 - New model to register refund operations.
