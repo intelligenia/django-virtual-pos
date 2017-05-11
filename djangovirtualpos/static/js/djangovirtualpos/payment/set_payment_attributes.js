@@ -1,3 +1,8 @@
+if(!$){
+    console.error("django-virtual-pos needs jQuery");
+    return;
+}
+
 $(document).ready(function(){
 
 	/** Show error message */
