@@ -44,7 +44,7 @@ def set_payment_attributes(request, sale_model, sale_ok_url, sale_nok_url):
 
     virtual_point_of_sale.configurePayment(
         # Payment amount
-        amount=sale.final_price,
+        amount=sale.amount,
         # Payment description
         description=sale.description,
         # Sale code
