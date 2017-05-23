@@ -1207,14 +1207,13 @@ class VPOSRedsys(VirtualPointOfSale):
             # Puede ser una petición de referencia
             if reference_number.lower() == "request":
                 order_data["DS_MERCHANT_IDENTIFIER"] = "REQUIRED"
-                order_data["DS_MERCHANT_MERCHANTURL"] += "?request_reference=1"
+                if "?" in order_data["DS_MERCHANT_MERCHANTURL"]:
+                    order_data["DS_MERCHANT_MERCHANTURL"] += "&request_reference=1"
+                else:
+                    order_data["DS_MERCHANT_MERCHANTURL"] += "?request_reference=1"
             # o en cambio puede ser el envío de una referencia obtenida antes
             else:
                 order_data["DS_MERCHANT_IDENTIFIER"] = reference_number
-
-        print("order data")
-        print(order_data)
-        print("END order data")
 
         json_order_data = json.dumps(order_data)
         packed_order_data = base64.b64encode(json_order_data)
@@ -1282,6 +1281,7 @@ class VPOSRedsys(VirtualPointOfSale):
         # Iniciamos los valores recibidos en el delegado
 
         # Datos de la operación al completo
+		# Usado para recuperar los datos la referencia
         vpos.delegated.ds_merchantparameters = operation_data
 
         ## Datos que llegan por POST
