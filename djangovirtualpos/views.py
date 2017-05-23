@@ -14,7 +14,7 @@ from djangovirtualpos.models import VirtualPointOfSale, VPOSCantCharge
 from django.http import JsonResponse
 
 
-def set_payment_attributes(request, sale_model, sale_ok_url, sale_nok_url):
+def set_payment_attributes(request, sale_model, sale_ok_url, sale_nok_url, reference_number=False):
     """
     Set payment attributes for the form that makes the first call to the VPOS.
     :param request: HttpRequest.
@@ -66,10 +66,14 @@ def set_payment_attributes(request, sale_model, sale_ok_url, sale_nok_url):
         sale_model.objects.filter(id=sale.id).update(operation_number=operation_number)
     except Exception as e:
         return JsonResponse({"message": u"Error generating operation number {0}".format(e)}, status=500)
-    print("dsfadsfdsafdsa")
 
     # Payment form data
-    form_data = virtual_point_of_sale.getPaymentFormData()
+    if hasattr(reference_number, "lower") and reference_number.lower() == "request":
+        form_data = virtual_point_of_sale.getPaymentFormData(reference_number="request")
+    elif reference_number:
+        form_data = virtual_point_of_sale.getPaymentFormData(reference_number=reference_number)
+    else:
+        form_data = virtual_point_of_sale.getPaymentFormData(reference_number=False)
 
     # Debug message
     form_data["message"] = "Payment {0} updated. Returning payment attributes.".format(payment_code)
@@ -84,7 +88,6 @@ def confirm_payment(request, virtualpos_type, sale_model):
     """
     This view will be called by the bank.
     """
-
     # Checking if the Point of Sale exists
     virtual_pos = VirtualPointOfSale.receiveConfirmation(request, virtualpos_type=virtualpos_type)
 
@@ -111,6 +114,7 @@ def confirm_payment(request, virtualpos_type, sale_model):
                 # Implement the online_confirm method in your payment
                 # this method will mark this payment as paid and will
                 # store the payment date and time.
+                payment.virtual_pos = virtual_pos
                 payment.online_confirm()
             except VPOSCantCharge as e:
                 return virtual_pos.responseNok(extended_status=e)

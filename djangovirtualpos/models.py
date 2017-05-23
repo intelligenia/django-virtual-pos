@@ -358,7 +358,7 @@ class VirtualPointOfSale(models.Model):
         """
         if type(amount) == int or type(amount) == Decimal:
             amount = float(amount)
-        if type(amount) != float or amount <= 0.0:
+        if type(amount) != float or amount < 0.0:
             raise ValueError(u"La cantidad debe ser un flotante positivo")
         if sale_code is None or sale_code == "":
             raise ValueError(u"El código de venta no puede estar vacío")
@@ -424,10 +424,10 @@ class VirtualPointOfSale(models.Model):
     ## Paso 1.3. Obtiene los datos de pago
     ## Este método será el que genere los campos del formulario de pago
     ## que se rellenarán desde el cliente (por Javascript)
-    def getPaymentFormData(self):
+    def getPaymentFormData(self, *args, **kwargs):
         if self.operation.operation_number is None:
             raise Exception(u"No se ha generado el número de operación, ¿ha llamado a vpos.setupPayment antes?")
-        data = self.delegated.getPaymentFormData()
+        data = self.delegated.getPaymentFormData(*args, **kwargs)
         data["type"] = self.type
         return data
 
@@ -1056,6 +1056,8 @@ class VPOSRedsys(VirtualPointOfSale):
         "9999": u"Operación que ha sido redirigida al emisor a autenticar.",
     }
 
+    ALLOW_PAYMENT_BY_REFERENCE = True
+
     # El TPV de RedSys consta de dos entornos en funcionamiento, uno para pruebas y otro para producción
     REDSYS_URL = {
         "production": "https://sis.redsys.es/sis/realizarPago",
@@ -1120,6 +1122,8 @@ class VPOSRedsys(VirtualPointOfSale):
         # Formato para Importe: según redsys, ha de tener un formato de entero positivo, con las dos últimas posiciones
         # ocupadas por los decimales
         self.importe = "{0:.2f}".format(float(self.parent.operation.amount)).replace(".", "")
+        if self.importe == "000":
+            self.importe = "0"
 
         # Idioma de la pasarela, por defecto es español, tomamos
         # el idioma actual y le asignamos éste
@@ -1159,7 +1163,7 @@ class VPOSRedsys(VirtualPointOfSale):
     ## Paso 1.3. Obtiene los datos de pago
     ## Este método será el que genere los campos del formulario de pago
     ## que se rellenarán desde el cliente (por Javascript)
-    def getPaymentFormData(self):
+    def getPaymentFormData(self, reference_number=False):
         order_data = {
             # Indica el importe de la venta
             "DS_MERCHANT_AMOUNT": self.importe,
@@ -1197,6 +1201,20 @@ class VPOSRedsys(VirtualPointOfSale):
             # Representa la suma total de los importes de las cuotas
             "DS_MERCHANT_SUMTOTAL": self.importe,
         }
+
+        # En caso de que tenga referencia
+        if reference_number:
+            # Puede ser una petición de referencia
+            if reference_number.lower() == "request":
+                order_data["DS_MERCHANT_IDENTIFIER"] = "REQUIRED"
+                order_data["DS_MERCHANT_MERCHANTURL"] += "?request_reference=1"
+            # o en cambio puede ser el envío de una referencia obtenida antes
+            else:
+                order_data["DS_MERCHANT_IDENTIFIER"] = reference_number
+
+        print("order data")
+        print(order_data)
+        print("END order data")
 
         json_order_data = json.dumps(order_data)
         packed_order_data = base64.b64encode(json_order_data)
@@ -1242,6 +1260,8 @@ class VPOSRedsys(VirtualPointOfSale):
         # Almacén de operaciones
         try:
             operation_data = json.loads(base64.b64decode(request.POST.get("Ds_MerchantParameters")))
+            dlprint(operation_data)
+            # Operation number
             operation_number = operation_data.get("Ds_Order")
             operation = VPOSPaymentOperation.objects.get(operation_number=operation_number)
             operation.confirmation_data = {"GET": request.GET.dict(), "POST": request.POST.dict()}
@@ -1260,6 +1280,9 @@ class VPOSRedsys(VirtualPointOfSale):
         vpos.operation = operation
 
         # Iniciamos los valores recibidos en el delegado
+
+        # Datos de la operación al completo
+        vpos.delegated.ds_merchantparameters = operation_data
 
         ## Datos que llegan por POST
         # Firma enviada por RedSys, que más tarde compararemos con la generada por el comercio
