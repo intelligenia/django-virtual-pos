@@ -1363,6 +1363,15 @@ class VPOSRedsys(VirtualPointOfSale):
         # Código que indica el tipo de transacción
         vpos.delegated.ds_response = root.xpath("//Message/Request/Ds_Response/text()")[0]
 
+        # Usado para recuperar los datos la referencia
+        vpos.delegated.ds_merchantparameters = {}
+        try:
+            vpos.delegated.ds_merchantparameters["Ds_Merchant_Identifier"] = root.xpath("//Message/Request/Ds_Merchant_Identifier/text()")[0]
+            vpos.delegated.ds_merchantparameters["Ds_ExpiryDate"] = root.xpath("//Message/Request/Ds_ExpiryDate/text()")[0]
+            # Aquí la idea es incluir más parámetros que nos puedan servir en el llamador de este módulo
+        except IndexError:
+            pass
+
         return vpos.delegated
 
     ####################################################################

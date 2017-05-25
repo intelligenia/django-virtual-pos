@@ -36,6 +36,11 @@ $(document).ready(function(){
 			vpos_id: $(this).data("id")
 		};
 
+        // Reference number
+		if($this.data("reference_number")){
+		    post["reference_number"] = $this.data("reference_number");
+		}
+
 		// Evitar que se pueda pulsar más de una vez sobre el botón
 		if(this.clicked){
 			event.preventDefault();
