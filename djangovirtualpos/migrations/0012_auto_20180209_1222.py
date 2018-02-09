@@ -18,7 +18,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('parent', models.OneToOneField(db_column='vpos_id', on_delete=django.db.models.deletion.CASCADE, parent_link=True, primary_key=True, related_name='+', serialize=False, to='djangovirtualpos.VirtualPointOfSale')),
                 ('testing_api_key', models.CharField(blank=True, max_length=512, null=True, verbose_name='API Key de Bitpay para entorno de test')),
-                ('production_api_key', models.CharField(max_length=512, verbose_name='API Key de Bitpay para entorno de produccion')),
+                ('production_api_key', models.CharField(max_length=512, verbose_name='API Key de Bitpay para entorno de producci\xf3n')),
                 ('currency', models.CharField(choices=[('EUR', 'Euro'), ('USD', 'Dolares'), ('BTC', 'Bitcoin')], default='EUR', max_length=3, verbose_name='Moneda (EUR, USD, BTC)')),
                 ('transaction_speed', models.CharField(choices=[('high', 'Alta'), ('medium', 'Media'), ('low', 'Baja')], default='medium', max_length=10, verbose_name='Velocidad de la operaci\xf3n')),
                 ('notification_url', models.URLField(verbose_name='Url notificaciones actualizaci\xf3n estados (https)')),

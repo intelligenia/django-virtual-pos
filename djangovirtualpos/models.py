@@ -3006,7 +3006,7 @@ class VPOSBitpay(VirtualPointOfSale):
 	# que heredan de ella estará en una tabla y sería un lío).
 	parent = models.OneToOneField(VirtualPointOfSale, parent_link=True, related_name="+", null=False, db_column="vpos_id")
 	testing_api_key = models.CharField(max_length=512, null=True, blank=True, verbose_name="API Key de Bitpay para entorno de test")
-	production_api_key = models.CharField(max_length=512, null=False, blank=False, verbose_name="API Key de Bitpay para entorno de produccion")
+	production_api_key = models.CharField(max_length=512, null=False, blank=False, verbose_name="API Key de Bitpay para entorno de producción")
 	currency = models.CharField(max_length=3, choices=CURRENCIES, default='EUR', null=False, blank=False, verbose_name="Moneda (EUR, USD, BTC)")
 	transaction_speed = models.CharField(max_length=10, choices=TRANSACTION_SPEED, default='medium', null=False, blank=False, verbose_name="Velocidad de la operación")
 	notification_url = models.URLField(verbose_name="Url notificaciones actualización estados (https)", null=False, blank=False)
