@@ -3013,7 +3013,6 @@ class VPOSBitpay(VirtualPointOfSale):
 
 	# Prefijo usado para identicar al servidor desde el que se realiza la petición, en caso de usar TPV-Proxy.
 	operation_number_prefix = models.CharField(max_length=20, null=True, blank=True, verbose_name="Prefijo del número de operación")
-	api_version = models.CharField(max_length=3, null=False, blank=False, verbose_name="Version", default="1.2")
 
 
 	bitpay_url = {

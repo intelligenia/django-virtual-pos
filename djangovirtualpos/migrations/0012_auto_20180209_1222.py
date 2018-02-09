@@ -23,7 +23,6 @@ class Migration(migrations.Migration):
                 ('transaction_speed', models.CharField(choices=[('high', 'Alta'), ('medium', 'Media'), ('low', 'Baja')], default='medium', max_length=10, verbose_name='Velocidad de la operaci\xf3n')),
                 ('notification_url', models.URLField(verbose_name='Url notificaciones actualizaci\xf3n estados (https)')),
                 ('operation_number_prefix', models.CharField(blank=True, max_length=20, null=True, verbose_name='Prefijo del n\xfamero de operaci\xf3n')),
-                ('api_version', models.CharField(default='1.2', max_length=3, verbose_name='Version')),
             ],
             bases=('djangovirtualpos.virtualpointofsale',),
         ),
