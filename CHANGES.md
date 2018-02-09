@@ -1,7 +1,13 @@
 # django-virtual-pos
-Django module that abstracts the flow of several virtual points of sale including PayPal.
+Django module that abstracts the flow of several virtual points of sale.
 
 # Releases
+
+## 1.6.8
+- Integration with [BitPay](https://bitpay.com/)
+
+## 1.6.7
+- Add DS_ERROR_CODE logging default message for unknown Ds_Response, allow SOAP responses with empty Ds_AuthorisationCode
 
 ## 1.6.6
 - Simplify integration.
