@@ -45,7 +45,7 @@ for dirpath, dirnames, filenames in os.walk('.'):
 
 setup(
     name="django-virtual-pos",
-    version="1.6.6",
+    version="1.6.7",
     install_requires=[
         "django",
         "beautifulsoup4",
@@ -54,9 +54,9 @@ setup(
         "pytz",
         "requests"
     ],
-    author="intelligenia S.L.",
-    author_email="diego@intelligenia.es",
-    description="django-virtual-post is a module that abstracts the flow of paying in several virtual points of sale.",
+    author="intelligenia",
+    author_email="mario@intelligenia.es",
+    description="django-virtual-pos is a module that abstracts the flow of paying in several online payment platforms.",
     long_description=long_description,
     classifiers=[
         'Development Status :: 5 - Production/Stable',
@@ -64,7 +64,7 @@ setup(
         'License :: OSI Approved :: MIT License',
     ],
     license="MIT",
-    keywords="virtual point-of-sale puchases online payments",
+    keywords=["virtual", "point-of-sale", "puchases", "online", "payments"],
     url='https://github.com/intelligenia/django-virtual-pos',
     packages=find_packages('.'),
     data_files=data_files,
