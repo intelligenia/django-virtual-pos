@@ -18,10 +18,15 @@ License
 Implemented payment methods
 ===========================
 
-PayPal
-------
+Paypal
+~~~~~~
 
-Easy integration with PayPal.
+`Paypal`_ paypal payment available.
+
+Bitpay
+~~~~~~
+
+`Bitpay`_ bitcoin payments, from wallet to checkout
 
 Spanish Virtual Points of Sale
 ------------------------------
@@ -149,14 +154,11 @@ Payment_confirm view
 ~~~~~~~~~~~~~~~~~~~~
 
 \````python @csrf_exempt def payment_confirmation(request,
-virtualpos_type): “”" This view will be called by the bank. “”" #
-Directly call to confirm_payment view
-
-::
-
-    # Or implement th
+virtualpos_typ
 
 .. _MIT LICENSE: LICENSE
+.. _Paypal: https://www.paypal.com/
+.. _Bitpay: http://bitpay.com
 .. _CECA: http://www.cajasdeahorros.es/
 .. _RedSyS: http://www.redsys.es/
 .. _Santander Elavon: https://www.santanderelavon.com/
