@@ -26,11 +26,13 @@
 
 import os
 from setuptools import setup, find_packages
+from os import path
 
-try:
-    long_description = open('README.rst').read()
-except(IOError, ImportError):
-    long_description = open('README.md').read()
+current_path = path.abspath(path.dirname(__file__))
+
+# Get the long description from the README file
+with open(path.join(current_path, 'README.rst')) as f:
+    long_description = f.read()
 
 data_files = []
 for dirpath, dirnames, filenames in os.walk('.'):
