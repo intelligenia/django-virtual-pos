@@ -16,7 +16,7 @@ This module abstracts the use of the most used virtual points of sale in Spain.
 [Paypal](https://www.paypal.com/) paypal payment available.
 
 ### Bitpay
-[Bitpay](bitpay.com) bitcoin payments, from wallet to checkout
+[Bitpay](http://bitpay.com) bitcoin payments, from wallet to checkout
 
 ## Spanish Virtual Points of Sale
 

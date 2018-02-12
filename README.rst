@@ -154,11 +154,11 @@ Payment_confirm view
 ~~~~~~~~~~~~~~~~~~~~
 
 \````python @csrf_exempt def payment_confirmation(request,
-virtualpos_type): “”
+virtualpos_typ
 
 .. _MIT LICENSE: LICENSE
 .. _Paypal: https://www.paypal.com/
-.. _Bitpay: bitpay.com
+.. _Bitpay: http://bitpay.com
 .. _CECA: http://www.cajasdeahorros.es/
 .. _RedSyS: http://www.redsys.es/
 .. _Santander Elavon: https://www.santanderelavon.com/
