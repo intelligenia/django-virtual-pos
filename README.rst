@@ -18,11 +18,6 @@ License
 Implemented payment methods
 ===========================
 
-PayPal
-------
-
-.. _paypal-1:
-
 Paypal
 ~~~~~~
 
@@ -158,7 +153,8 @@ bank have the user selected.
 Payment_confirm view
 ~~~~~~~~~~~~~~~~~~~~
 
-\````python @csrf_exempt def payment_confirmation(request, virtualpos
+\````python @csrf_exempt def payment_confirmation(request,
+virtualpos_type): “”
 
 .. _MIT LICENSE: LICENSE
 .. _Paypal: https://www.paypal.com/

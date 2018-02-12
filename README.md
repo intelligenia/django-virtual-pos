@@ -12,8 +12,6 @@ This module abstracts the use of the most used virtual points of sale in Spain.
 
 # Implemented payment methods
 
-## PayPal
-
 ### Paypal
 [Paypal](https://www.paypal.com/) paypal payment available.
 
