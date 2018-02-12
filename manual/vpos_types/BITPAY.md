@@ -47,26 +47,26 @@ params = {
 
 ```json
 {  
-   u'status':u'new',
-   u'btcPaid':u'0.000000',
-   u'invoiceTime':1518093126310,
-   u'buyerFields':{ },
-   u'currentTime':1518093126390,
-   u'url':   u'https://bitpay.com/invoice?id=X7VytgMABGuv5Vo4xPsRhb',
-   u'price':5,
-   u'btcDue':u'0.000889',
-   u'btcPrice':u'0.000721',
-   u'currency':u'EUR',
-   u'rate':6938.79,
-   u'paymentSubtotals':{  
-      u'BTC':72100
+   "status":"new",
+   "btcPaid":"0.000000",
+   "invoiceTime":1518093126310,
+   "buyerFields":{ },
+   "currentTime":1518093126390,
+   "url":"https://bitpay.com/invoice?id=X7VytgMABGuv5Vo4xPsRhb",
+   "price":5,
+   "btcDue":"0.000889",
+   "btcPrice":"0.000721",
+   "currency":"EUR",
+   "rate":6938.79,
+   "paymentSubtotals":{  
+      "BTC":72100
    },
-   u'paymentTotals':{  
-      u'BTC':88900
+   "paymentTotals":{  
+      "BTC":88900
    },
-   u'expirationTime':1518094026310,
-   u'id':u'X7VytgMABGuv5Vo4xPsRhb',
-   u'exceptionStatus':False
+   "expirationTime":1518094026310,
+   "id":"X7VytgMABGuv5Vo4xPsRhb",
+   "exceptionStatus": false
 }
 ```
 
