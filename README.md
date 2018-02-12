@@ -14,9 +14,14 @@ This module abstracts the use of the most used virtual points of sale in Spain.
 
 ## PayPal
 
-Easy integration with PayPal.
+### Paypal
+[Paypal](https://www.paypal.com/) paypal payment available.
+
+### Bitpay
+[Bitpay](bitpay.com) bitcoin payments, from wallet to checkout
 
 ## Spanish Virtual Points of Sale
+
 
 ### Ceca
 [CECA](http://www.cajasdeahorros.es/) is the Spanish confederation of savings banks.
