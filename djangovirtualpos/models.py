@@ -3139,13 +3139,13 @@ class VPOSBitpay(VirtualPointOfSale):
 		# Comprueba si el envío es correcto
 		# Para esto, comprobamos si hay alguna operación que tenga el mismo
 		# número de operación
-		operation = VPOSPaymentOperation.objects.filter(operation_number=self.bitpay_id)
+		operation = VPOSPaymentOperation.objects.filter(operation_number=self.bitpay_id, status='pending')
 
 		if operation:
 			# En caso de recibir, un estado confirmado ()
 			# NOTA: Bitpay tiene los siguientes posibles estados:
 			# new, paid, confirmed, complete, expired, invalid.
-			if self.status == "confirmed":
+			if self.status == "paid":
 				dlprint(u"La operación es confirmada")
 				return True
 
