@@ -3362,6 +3362,12 @@ class VPOSBitpay(VirtualPointOfSale):
         dlprint(u"Respuesta de Bitpay")
         dlprint(response)
 
+        if response.get("error"):
+            error = response.get("error")
+            message = error.get("message")
+            error_type = error.get("type")
+            raise ValueError(u"ERROR. {0} - {1}".format(message, error_type))
+
         if not response.get("id"):
             raise ValueError(u"ERROR. La respuesta no contiene id de invoice.")
 
