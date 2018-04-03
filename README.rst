@@ -153,6 +153,7 @@ Payment_confirm view
 ------------
 
 .. code:: python
+
     @csrf_exempt
     def payment_confirmation(request, virtualpos_type):
     	"""
@@ -205,6 +206,7 @@ Payment ok view
 ------------
 
 .. code:: python
+
     def payment_ok(request, sale_code):
         """
         Informs the user that the payment has been made successfully
@@ -243,6 +245,7 @@ Refund view
 ------------
 
 .. code:: python
+
     def refund(request, tpv, payment_code, amount, description):
       	"""
       	:param request:
