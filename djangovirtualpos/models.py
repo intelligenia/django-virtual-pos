@@ -1960,11 +1960,11 @@ class VPOSRedsys(VirtualPointOfSale):
             return HttpResponse(out, "text/xml")
 
         else:
-            dlprint(u"responseOk HTTP POST")
+            dlprint(u"responseOk HTTP POST (respuesta vacía)")
             # Respuesta a notificación HTTP POST
             # En RedSys no se exige una respuesta, por parte del comercio, para verificar
             # la operación, pasamos una respuesta vacia
-            return HttpResponse("OK")
+            return HttpResponse("")
 
     ####################################################################
     ## Paso 3.3b. Si ha habido un error en el pago, se ha de dar una
