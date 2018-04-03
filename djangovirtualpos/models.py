@@ -982,6 +982,15 @@ class VPOSCeca(VirtualPointOfSale):
 ########################################################################################################################
 ########################################################################################################################
 
+AUTHORIZATION_TYPE = "authorization"
+PREAUTHORIZATION_TYPE = "pre-authorization"
+
+OPERATIVE_TYPES = (
+    (AUTHORIZATION_TYPE, u"autorización"),
+    (PREAUTHORIZATION_TYPE, u"pre-autorización"),
+)
+
+
 class VPOSRedsys(VirtualPointOfSale):
     """Información de configuración del TPV Virtual Redsys"""
     ## Todo TPV tiene una relación con los datos generales del TPV
@@ -1002,7 +1011,8 @@ class VPOSRedsys(VirtualPointOfSale):
     terminal_id = models.CharField(max_length=3, null=False, blank=False, verbose_name="TerminalID")
 
     # Habilita mecanismo de preautorización + confirmación o anulación.
-    enable_preauth_policy = models.BooleanField(default=False, verbose_name=u"Habilitar política de preautorización")
+
+    operative_type = models.CharField(max_length=512, choices=OPERATIVE_TYPES, default=AUTHORIZATION_TYPE, verbose_name=u"Tipo de operativa")
 
     # Clave de cifrado SHA-256 para el entorno de prueba
     encryption_key_testing_sha256 = models.CharField(max_length=64, null=True, default=None,
@@ -1586,13 +1596,12 @@ class VPOSRedsys(VirtualPointOfSale):
         self.url = self.REDSYS_URL[self.parent.environment]
 
         # Configurar el tipo de transacción se utiliza, en función del parámetro enable_preauth-policy.
-        # La autorización tienen el código 0.
-        self.transaction_type = "0"
-
-        # La pre-autorización tiene el código 1
-        if self.enable_preauth_policy:
+        if self.operative_type == PREAUTHORIZATION_TYPE:
             dlprint(u"Configuracion TPV en modo Pre-Autorizacion")
             self.transaction_type = "1"
+        elif self.operative_type == AUTHORIZATION_TYPE:
+            dlprint(u"Configuracion TPV en modo Autorizacion")
+            self.transaction_type = "0"
 
         # Formato para Importe: según redsys, ha de tener un formato de entero positivo, con las dos últimas posiciones
         # ocupadas por los decimales
@@ -1868,10 +1877,6 @@ class VPOSRedsys(VirtualPointOfSale):
 
         # Código que indica el tipo de transacción
         vpos.delegated.ds_response = root.xpath("//Message/Request/Ds_Response/text()")[0]
-        ds_transaction_type = root.xpath("//Message/Request/Ds_TransactionType/text()")[0]
-
-        if not (vpos.delegated.enable_preauth_policy and ds_transaction_type == "1"):
-            raise VPOSOperationException("Configuración de política de confirmación no coincide con respuesta Redsys")
 
         # Usado para recuperar los datos la referencia
         vpos.delegated.ds_merchantparameters = {}
@@ -1924,7 +1929,7 @@ class VPOSRedsys(VirtualPointOfSale):
     def charge(self):
         # En caso de tener habilitada la preautorización
         # no nos importa el tipo de confirmación.
-        if self.enable_preauth_policy:
+        if self.operative_type == PREAUTHORIZATION_TYPE:
             # Cuando se tiene habilitada política de preautorización.
             dlprint("Confirmar medinate política de preautorizacion")
             if self._confirm_preauthorization():
@@ -1966,7 +1971,7 @@ class VPOSRedsys(VirtualPointOfSale):
     ## respuesta negativa a la pasarela bancaria.
     def responseNok(self, **kwargs):
 
-        if self.enable_preauth_policy:
+        if self.operative_type == PREAUTHORIZATION_TYPE:
             # Cuando se tiene habilitada política de preautorización.
             dlprint("Enviar mensaje para cancelar una preautorizacion")
             self._cancel_preauthorization()
