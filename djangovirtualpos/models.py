@@ -1749,7 +1749,7 @@ class VPOSRedsys(VirtualPointOfSale):
             operation = VPOSPaymentOperation.objects.get(operation_number=operation_number)
 
             if operation.status != "pending":
-                raise VPOSOperationAlreadyConfirmed("Operación ya confirmada")
+                raise VPOSOperationAlreadyConfirmed(u"Operación ya confirmada")
 
             operation.confirmation_data = {"GET": request.GET.dict(), "POST": request.POST.dict()}
             operation.confirmation_code = operation_number
@@ -1840,7 +1840,7 @@ class VPOSRedsys(VirtualPointOfSale):
             operation = VPOSPaymentOperation.objects.get(operation_number=ds_order)
 
             if operation.status != "pending":
-                raise VPOSOperationAlreadyConfirmed("Operación ya confirmada")
+                raise VPOSOperationAlreadyConfirmed(u"Operación ya confirmada")
 
             operation.confirmation_data = {"GET": "", "POST": xml_content}
             operation.confirmation_code = ds_order
@@ -3403,6 +3403,10 @@ class VPOSBitpay(VirtualPointOfSale):
         # Almacén de operaciones
         try:
             operation = VPOSPaymentOperation.objects.get(operation_number=confirmation_body_param.get("id"))
+
+            if operation.status != "pending":
+                raise VPOSOperationAlreadyConfirmed(u"Operación ya confirmada")
+
             operation.confirmation_data = {"GET": request.GET.dict(), "POST": request.POST.dict(), "BODY": confirmation_body_param}
             operation.save()
 
@@ -3450,4 +3454,3 @@ class VPOSBitpay(VirtualPointOfSale):
 
     def refund(self, refund_amount, description):
         raise VPOSOperationNotImplemented(u"No se ha implementado la operación de devolución particular.")
-
