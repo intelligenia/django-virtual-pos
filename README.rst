@@ -1,35 +1,35 @@
 Django Virtual Pos
-======
+==================
 
 Django module that abstracts the flow of several virtual points of sale
 including PayPal
 
 What’s this?
-------------
+-------------------------
 
 This module abstracts the use of the most used virtual points of sale in
 Spain.
 
 License
-------------
+-------------------------
 
 `MIT LICENSE`_.
 
 Implemented payment methods
-------------
+----------------------------
 
 Paypal
-------------
+-------------------------
 
 `Paypal`_ paypal payment available.
 
 Bitpay
-------------
+-------------------------
 
 `Bitpay`_ bitcoin payments, from wallet to checkout
 
 Spanish Virtual Points of Sale
-------------
+------------------------------
 
 - Ceca
 
@@ -42,16 +42,16 @@ Spanish Virtual Points of Sale
 or Caja Rural.
 
 Santander Elavon
-------------
+----------------
 
 `Santander Elavon`_ is one of the payment methods of the Spanish bank
 Santander.
 
 Requirements and Installation
-======
+==============================
 
 Requirements
-------------
+----------------
 
 -  Python 2.7 (Python 3 not tested, contributors wanted!)
 -  ``Django``
@@ -68,17 +68,18 @@ Type:
     $ pip install django beautifulsoup4 lxml pycrypto pytz
 
 Installation
-------------
+----------------
+
 
 From PyPi
-------------
+----------------
 
 .. code:: sh
 
     $ pip install django-virtual-pos
 
 From master branch
-------------
+-------------------
 
 Master branch will allways contain a working version of this module.
 
@@ -87,7 +88,7 @@ Master branch will allways contain a working version of this module.
     $ pip install git+git://github.com/intelligenia/django-virtual-pos.git
 
 settings.py
-------------
+-------------
 
 Add the application djangovirtualpos to your settings.py:
 
@@ -99,12 +100,12 @@ Add the application djangovirtualpos to your settings.py:
     )
 
 Use
-======
+----
 
 See this ``manual`` (currently only in Spanish).
 
 Needed models
-------------
+-------------
 
 You will need to implement this skeleton view using your own **Payment**
 model.
@@ -119,15 +120,15 @@ And the following methods: - **online_confirm**: mark the payment as
 paid.
 
 Integration examples
-------------
+-----------------------
 
 -  ``djshop``
 
 Needed views
-------------
+--------------
 
 Sale summary view
-------------
+------------------
 
 .. code:: python
 
@@ -150,7 +151,7 @@ This file is needed to set initial payment attributes according to which
 bank have the user selected.
 
 Payment_confirm view
-------------
+-------------------------
 
 .. code:: python
 
@@ -203,7 +204,7 @@ Payment_confirm view
     		return response
 
 Payment ok view
-------------
+-------------------------
 
 .. code:: python
 
@@ -221,7 +222,7 @@ Payment ok view
         return render(request, '<payment_ok template>', {'context': context, 'payment': payment})
 
 Payment cancel view
-------------
+--------------------
 
 .. code:: python
 
@@ -242,7 +243,7 @@ Payment cancel view
 
 
 Refund view
-------------
+-----------
 
 .. code:: python
 
@@ -277,7 +278,7 @@ Refund view
       	return http_response_json_ok(message)
 
 Authors
-======
+===============
 
 - Mario Barchéin marioREMOVETHIS@REMOVETHISintelligenia.com
 - Diego J. Romero diegoREMOVETHIS@REMOVETHISintelligenia.com
