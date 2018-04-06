@@ -1,66 +1,65 @@
-django-virtual-pos
-==================
+Django Virtual Pos
+======
 
 Django module that abstracts the flow of several virtual points of sale
 including PayPal
 
 What’s this?
-============
+------------
 
 This module abstracts the use of the most used virtual points of sale in
 Spain.
 
 License
-=======
+------------
 
 `MIT LICENSE`_.
 
 Implemented payment methods
-===========================
+------------
 
 Paypal
-~~~~~~
+------------
 
 `Paypal`_ paypal payment available.
 
 Bitpay
-~~~~~~
+------------
 
 `Bitpay`_ bitcoin payments, from wallet to checkout
 
 Spanish Virtual Points of Sale
-------------------------------
+------------
 
-Ceca
-~~~~
+- Ceca
+
 
 `CECA`_ is the Spanish confederation of savings banks.
 
-RedSyS
-~~~~~~
+- RedSyS
 
 `RedSyS`_ gives payment services to several Spanish banks like CaixaBank
 or Caja Rural.
 
 Santander Elavon
-~~~~~~~~~~~~~~~~
+------------
 
 `Santander Elavon`_ is one of the payment methods of the Spanish bank
 Santander.
 
 Requirements and Installation
-=============================
+======
 
 Requirements
 ------------
 
 -  Python 2.7 (Python 3 not tested, contributors wanted!)
--  `Django`_
--  `BeautifulSoup4`_
--  `lxml`_
--  `pycrypto`_
--  `Pytz`_
--  `Requests`_
+-  ``Django``
+-  ``BeautifulSoup4``
+-  ``lxml``
+-  ``pycrypto``
+-  ``Pytz``
+-  ``Requests``
 
 Type:
 
@@ -72,14 +71,14 @@ Installation
 ------------
 
 From PyPi
-~~~~~~~~~
+------------
 
 .. code:: sh
 
     $ pip install django-virtual-pos
 
 From master branch
-~~~~~~~~~~~~~~~~~~
+------------
 
 Master branch will allways contain a working version of this module.
 
@@ -88,7 +87,7 @@ Master branch will allways contain a working version of this module.
     $ pip install git+git://github.com/intelligenia/django-virtual-pos.git
 
 settings.py
-~~~~~~~~~~~
+------------
 
 Add the application djangovirtualpos to your settings.py:
 
@@ -100,12 +99,12 @@ Add the application djangovirtualpos to your settings.py:
     )
 
 Use
-===
+======
 
-See this `manual`_ (currently only in Spanish).
+See this ``manual`` (currently only in Spanish).
 
 Needed models
--------------
+------------
 
 You will need to implement this skeleton view using your own **Payment**
 model.
@@ -120,15 +119,15 @@ And the following methods: - **online_confirm**: mark the payment as
 paid.
 
 Integration examples
---------------------
+------------
 
--  `djshop`_
+-  ``djshop``
 
 Needed views
 ------------
 
 Sale summary view
-~~~~~~~~~~~~~~~~~
+------------
 
 .. code:: python
 
@@ -151,10 +150,140 @@ This file is needed to set initial payment attributes according to which
 bank have the user selected.
 
 Payment_confirm view
-~~~~~~~~~~~~~~~~~~~~
+------------
 
-\````python @csrf_exempt def payment_confirmation(request,
-virtualpos_typ
+.. code:: python
+
+    @csrf_exempt
+    def payment_confirmation(request, virtualpos_type):
+    	"""
+    	This view will be called by the bank.
+    	"""
+    	# Directly call to confirm_payment view
+
+    	# Or implement the following actions
+
+    	# Checking if the Point of Sale exists
+    	virtual_pos = VirtualPointOfSale.receiveConfirmation(request, virtualpos_type=virtualpos_type)
+
+    	if not virtual_pos:
+    		# The VPOS does not exist, inform the bank with a cancel
+    		# response if needed
+    		return VirtualPointOfSale.staticResponseNok(virtualpos_type)
+
+    	# Verify if bank confirmation is indeed from the bank
+    	verified = virtual_pos.verifyConfirmation()
+    	operation_number = virtual_pos.operation.operation_number
+
+    	with transaction.atomic():
+    		try:
+    			# Getting your payment object from operation number
+    			payment = Payment.objects.get(operation_number=operation_number, status="pending")
+    		except Payment.DoesNotExist:
+    			return virtual_pos.responseNok("not_exists")
+
+    		if verified:
+    			# Charge the money and answer the bank confirmation
+    			try:
+    				response = virtual_pos.charge()
+    				# Implement the online_confirm method in your payment
+    				# this method will mark this payment as paid and will
+    				# store the payment date and time.
+    				payment.online_confirm()
+    			except VPOSCantCharge as e:
+    				return virtual_pos.responseNok(extended_status=e)
+    			except Exception as e:
+    				return virtual_pos.responseNok("cant_charge")
+
+    		else:
+    			# Payment could not be verified
+    			# signature is not right
+    			response = virtual_pos.responseNok("verification_error")
+
+    		return response
+
+Payment ok view
+------------
+
+.. code:: python
+
+    def payment_ok(request, sale_code):
+        """
+        Informs the user that the payment has been made successfully
+        :param payment_code: Payment code.
+        :param request: request.
+        """
+
+        # Load your Payment model given its code
+        payment =  get_object_or_404(Payment, code=sale_code, status="paid")
+
+        context = {'pay_status': "Done", "request": request}
+        return render(request, '<payment_ok template>', {'context': context, 'payment': payment})
+
+Payment cancel view
+------------
+
+.. code:: python
+
+    def payment_cancel(request, sale_code):
+        """
+        Informs the user that the payment has been canceled
+        :param payment_code: Payment code.
+        :param request: request.
+        """
+
+        # Load your Payment model given its code
+        payment =  get_object_or_404(Payment, code=sale_code, status="pending")
+        # Mark this payment as canceled
+        payment.cancel()
+
+        context = {'pay_status': "Done", "request": request}
+        return render(request, '<payment_canceled template>', {'context': context, 'payment': payment})
+
+
+Refund view
+------------
+
+.. code:: python
+
+    def refund(request, tpv, payment_code, amount, description):
+      	"""
+      	:param request:
+      	:param tpv: TPV Id
+      	:param payment_code: Payment code
+      	:param amount: Refund Amount (Example 10.89).
+      	:param description: Description of refund cause.
+      	:return:
+      	"""
+
+      	amount = Decimal(amount)
+
+      	try:
+      		# Checking if the Point of Sale exists
+      		tpv = VirtualPointOfSale.get(id=tpv)
+      		# Checking if the Payment exists
+      		payment = Payment.objects.get(code=payment_code, state="paid")
+
+      	except Payment.DoesNotExist as e:
+      		return http_bad_request_response_json_error(message=u"Does not exist payment with code {0}".format(payment_code))
+
+      	refund_status = tpv.refund(payment_code, amount, description)
+
+      	if refund_status:
+      		message = u"Refund successful"
+      	else:
+      		message = u"Refund with erros"
+
+      	return http_response_json_ok(message)
+
+Authors
+======
+
+- Mario Barchéin marioREMOVETHIS@REMOVETHISintelligenia.com
+- Diego J. Romero diegoREMOVETHIS@REMOVETHISintelligenia.com
+
+Remove REMOVETHIS to contact the authors.
+
 
 .. _MIT LICENSE: LICENSE
 .. _Paypal: https://www.paypal.com/
