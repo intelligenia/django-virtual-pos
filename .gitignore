@@ -96,3 +96,5 @@ ENV/
 
 # Backup files
 *~
+
+MANIFEST
