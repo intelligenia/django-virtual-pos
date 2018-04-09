@@ -1935,7 +1935,7 @@ class VPOSRedsys(VirtualPointOfSale):
             if self._confirm_preauthorization():
                 return HttpResponse("OK")
             else:
-                self.responseNok()
+                return self.responseNok()
 
         # En otro caso la confirmación continua haciendose como antes.
         # Sin cambiar nada.
@@ -2133,6 +2133,7 @@ class VPOSRedsys(VirtualPointOfSale):
         return status
 
     def _confirm_preauthorization(self):
+
         """
         Realiza petición HTTP POST con los parámetros adecuados para
         confirmar una operación de pre-autorización.
@@ -2141,6 +2142,8 @@ class VPOSRedsys(VirtualPointOfSale):
         NOTA2: Si el HTML anterior no proporciona información de éxito o error. Lanza una excepción.
         :return: status: Bool
         """
+
+        dlprint("Entra en confirmacion de pre-autorizacion")
 
         # URL de pago según el entorno
         self.url = self.REDSYS_URL[self.parent.environment]
@@ -2200,6 +2203,8 @@ class VPOSRedsys(VirtualPointOfSale):
         json_order_data = json.dumps(order_data)
         packed_order_data = base64.b64encode(json_order_data)
 
+        dlprint(json_order_data)
+
         data = {
             "Ds_SignatureVersion": "HMAC_SHA256_V1",
             "Ds_MerchantParameters": packed_order_data,
@@ -2210,6 +2215,8 @@ class VPOSRedsys(VirtualPointOfSale):
 
         # Realizamos petición POST con los datos de la operación y las cabeceras necesarias.
         confirmpreauth_html_request = requests.post(self.url, data=data, headers=headers)
+
+        dlprint(confirmpreauth_html_request.text())
 
         if confirmpreauth_html_request.status_code == 200:
 
@@ -2253,6 +2260,8 @@ class VPOSRedsys(VirtualPointOfSale):
         NOTA2: Si el HTML anterior no proporciona información de éxito o error. Lanza una excepción.
         :return: status: Bool
         """
+
+        dlprint("Entra en cancelacion de pre-autorizacion")
 
         # URL de pago según el entorno
         self.url = self.REDSYS_URL[self.parent.environment]
@@ -2310,6 +2319,9 @@ class VPOSRedsys(VirtualPointOfSale):
         }
 
         json_order_data = json.dumps(order_data)
+
+        dlprint(json_order_data)
+
         packed_order_data = base64.b64encode(json_order_data)
 
         data = {
