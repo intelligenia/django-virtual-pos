@@ -2216,9 +2216,9 @@ class VPOSRedsys(VirtualPointOfSale):
         # Realizamos petición POST con los datos de la operación y las cabeceras necesarias.
         confirmpreauth_html_request = requests.post(self.url, data=data, headers=headers)
 
-        dlprint(confirmpreauth_html_request.text())
-
         if confirmpreauth_html_request.status_code == 200:
+            
+            dlprint("_confirm_preauthorization status_code 200")
 
             # Iniciamos un objeto BeautifulSoup (para poder leer los elementos del DOM del HTML recibido).
             html = BeautifulSoup(confirmpreauth_html_request.text, "html.parser")
