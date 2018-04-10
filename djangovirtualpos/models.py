@@ -2501,7 +2501,7 @@ class VPOSPaypal(VirtualPointOfSale):
     }
     Cancel_url = {
         "production": "http://" + settings.ALLOWED_HOSTS[0] + "/es/payment/cancel/",
-        "testing": "http://" + settings.ALLOWEDcom_HOSTS[0] + "/es/payment/cancel/"
+        "testing": "http://" + settings.ALLOWED_HOSTS[0] + "/es/payment/cancel/"
     }
     paypal_url = {
         "production": {
