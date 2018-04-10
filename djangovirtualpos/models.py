@@ -1914,12 +1914,14 @@ class VPOSRedsys(VirtualPointOfSale):
         # por RedSys. Los pagos autorizados son todos los Ds_Response entre
         # 0000 y 0099 [manual TPV Virtual SIS v1.0, pág. 31]
         if len(self.ds_response) != 4 or not self.ds_response.isdigit():
-            if self.ds_response[:2] != "00" or self.ds_response[:2] != "99":
-                dlprint(u"Transacción no autorizada por RedSys. Ds_Response es {0} (no está entre 0000-0099)".format(
-                    self.ds_response))
-                return False
-
-        # Todo OK
+            dlprint(u"Transacción no autorizada por RedSys. Ds_Response es {0} (no está entre 0000-0099)".format(
+                self.ds_response))
+            return False
+        elif self.ds_response[:2] != "00":
+            dlprint(u"Transacción no autorizada por RedSys. Ds_Response es {0} (no está entre 0000-0099)".format(
+                self.ds_response))
+            return False
+        
         return True
 
     ####################################################################
@@ -2499,7 +2501,7 @@ class VPOSPaypal(VirtualPointOfSale):
     }
     Cancel_url = {
         "production": "http://" + settings.ALLOWED_HOSTS[0] + "/es/payment/cancel/",
-        "testing": "http://" + settings.ALLOWED_HOSTS[0] + "/es/payment/cancel/"
+        "testing": "http://" + settings.ALLOWEDcom_HOSTS[0] + "/es/payment/cancel/"
     }
     paypal_url = {
         "production": {
