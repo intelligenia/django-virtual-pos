@@ -2,6 +2,8 @@
 Django module that abstracts the flow of several virtual points of sale.
 
 # Releases
+## 1.6.10
+- Managing refund async confirmations for Redsys
 
 ## 1.6.8
 - Integration with [BitPay](https://bitpay.com/)

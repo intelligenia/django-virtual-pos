@@ -521,7 +521,7 @@ class VirtualPointOfSale(models.Model):
         return self.delegated.responseNok()
 
     ####################################################################
-    ## Paso R. (Refund) Configura el TPV en modo devolución
+    ## Paso R1 (Refund) Configura el TPV en modo devolución y ejecuta la operación
     ## TODO: Se implementa solo para Redsys
     def refund(self, operation_sale_code, refund_amount, description):
         """
@@ -565,7 +565,7 @@ class VirtualPointOfSale(models.Model):
         self.operation.save()
 
         # Llamamos al delegado que implementa la funcionalidad en particular.
-        refund_response = self.delegated.refund(refund_amount, description)
+        refund_response = self.delegated.refund(operation_sale_code, refund_amount, description)
 
         if refund_response:
             refund_status = 'completed'
@@ -582,6 +582,20 @@ class VirtualPointOfSale(models.Model):
         return refund_response
 
 
+    ####################################################################
+    ## Paso R2.a. Respuesta positiva a confirmación asíncrona de refund
+    def refund_response_ok(self, extended_status=""):
+        dlprint("vpos.refund_response_ok")
+        return self.delegated.refund_response_ok()
+
+
+    ####################################################################
+    ## Paso R2.b. Respuesta negativa a confirmación asíncrona de refund
+    def refund_response_nok(self, extended_status=""):
+        dlprint("vpos.refund_response_nok")
+        return self.delegated.refund_response_nok()
+
+
 ########################################################################################################################
 class VPOSRefundOperation(models.Model):
     """
@@ -596,6 +610,11 @@ class VPOSRefundOperation(models.Model):
     creation_datetime = models.DateTimeField(verbose_name="Fecha de creación del objeto")
     last_update_datetime = models.DateTimeField(verbose_name="Fecha de última actualización del objeto")
     payment = models.ForeignKey(VPOSPaymentOperation, on_delete=models.PROTECT, related_name="refund_operations")
+
+
+    @property
+    def virtual_point_of_sale(self):
+        return self.payment.virtual_point_of_sale
 
 
     ## Guarda el objeto en BD, en realidad lo único que hace es actualizar los datetimes
@@ -910,9 +929,19 @@ class VPOSCeca(VirtualPointOfSale):
         return HttpResponse("")
 
     ####################################################################
-    ## Paso R. (Refund) Configura el TPV en modo devolución
+    ## Paso R1. (Refund) Configura el TPV en modo devolución
     ## TODO: No implementado
-    def refund(self, refund_amount, description):
+    def refund(self, operation_sale_code, refund_amount, description):
+        raise VPOSOperationNotImplemented(u"No se ha implementado la operación de devolución particular para CECA.")
+
+    ####################################################################
+    ## Paso R2.a. Respuesta positiva a confirmación asíncrona de refund
+    def refund_response_ok(self, extended_status=""):
+        raise VPOSOperationNotImplemented(u"No se ha implementado la operación de devolución particular para CECA.")
+
+    ####################################################################
+    ## Paso R2.b. Respuesta negativa a confirmación asíncrona de refund
+    def refund_response_nok(self, extended_status=""):
         raise VPOSOperationNotImplemented(u"No se ha implementado la operación de devolución particular para CECA.")
 
     ####################################################################
@@ -1744,34 +1773,49 @@ class VPOSRedsys(VirtualPointOfSale):
         try:
             operation_data = json.loads(base64.b64decode(request.POST.get("Ds_MerchantParameters")))
             dlprint(operation_data)
+
             # Operation number
             operation_number = operation_data.get("Ds_Order")
-            operation = VPOSPaymentOperation.objects.get(operation_number=operation_number)
 
-            if operation.status != "pending":
-                raise VPOSOperationAlreadyConfirmed(u"Operación ya confirmada")
+            ds_transactiontype = operation_data.get("Ds_TransactionType")
+            if ds_transactiontype == "3":
+                # Operación de reembolso
+                operation = VPOSRefundOperation.objects.get(operation_number=operation_number)
 
-            operation.confirmation_data = {"GET": request.GET.dict(), "POST": request.POST.dict()}
-            operation.confirmation_code = operation_number
-
-            ds_errorcode = operation_data.get("Ds_ErrorCode")
-            if ds_errorcode:
-                errormsg = u' // ' + VPOSRedsys._format_ds_error_code(operation_data.get("Ds_ErrorCode"))
             else:
-                errormsg = u''
+                # Operación de confirmación de venta
+                operation = VPOSPaymentOperation.objects.get(operation_number=operation_number)
 
-            operation.response_code = VPOSRedsys._format_ds_response_code(operation_data.get("Ds_Response")) + errormsg
-            operation.save()
-            dlprint("Operation {0} actualizada en _receiveConfirmationHTTPPOST()".format(operation.operation_number))
-            dlprint(u"Ds_Response={0} Ds_ErrorCode={1}".format(operation_data.get("Ds_Response"), operation_data.get("Ds_ErrorCode")))
+                # Comprobar que no se trata de una operación de confirmación de compra anteriormente confirmada
+                if operation.status != "pending":
+                    raise VPOSOperationAlreadyConfirmed(u"Operación ya confirmada")
 
-            vpos = operation.virtual_point_of_sale
+                operation.confirmation_data = {"GET": request.GET.dict(), "POST": request.POST.dict()}
+                operation.confirmation_code = operation_number
+
+                ds_errorcode = operation_data.get("Ds_ErrorCode")
+                if ds_errorcode:
+                 errormsg = u' // ' + VPOSRedsys._format_ds_error_code(operation_data.get("Ds_ErrorCode"))
+                else:
+                    errormsg = u''
+
+                operation.response_code = VPOSRedsys._format_ds_response_code(operation_data.get("Ds_Response")) + errormsg
+                operation.save()
+                dlprint("Operation {0} actualizada en _receiveConfirmationHTTPPOST()".format(operation.operation_number))
+                dlprint(u"Ds_Response={0} Ds_ErrorCode={1}".format(operation_data.get("Ds_Response"), operation_data.get("Ds_ErrorCode")))
+
         except VPOSPaymentOperation.DoesNotExist:
             # Si no existe la operación, están intentando
             # cargar una operación inexistente
             return False
 
+        except VPOSRefundOperation.DoesNotExist:
+            # Si no existe la operación, están intentando
+            # cargar una operación inexistente
+            return False
+
         # Iniciamos el delegado y la operación, esto es fundamental para luego calcular la firma
+        vpos = operation.virtual_point_of_sale
         vpos._init_delegated()
         vpos.operation = operation
 
@@ -1823,6 +1867,7 @@ class VPOSRedsys(VirtualPointOfSale):
         try:
             ds_order = root.xpath("//Message/Request/Ds_Order/text()")[0]
             ds_response = root.xpath("//Message/Request/Ds_Response/text()")[0]
+            ds_transactiontype = root.xpath("//Message/Request/Ds_TransactionType/text()")[0]
 
             try:
                 ds_authorisationcode = root.xpath("//Message/Request/Ds_AuthorisationCode/text()")[0]
@@ -1837,26 +1882,36 @@ class VPOSRedsys(VirtualPointOfSale):
                 ds_errorcode = None
                 errormsg = u''
 
-            operation = VPOSPaymentOperation.objects.get(operation_number=ds_order)
+            if ds_transactiontype == "3":
+                # Operación de reembolso
+                operation = VPOSRefundOperation.objects.get(operation_number=ds_order)
+            else:
+                # Operación de confirmación de venta
+                operation = VPOSPaymentOperation.objects.get(operation_number=ds_order)
 
-            if operation.status != "pending":
-                raise VPOSOperationAlreadyConfirmed(u"Operación ya confirmada")
+                if operation.status != "pending":
+                    raise VPOSOperationAlreadyConfirmed(u"Operación ya confirmada")
 
-            operation.confirmation_data = {"GET": "", "POST": xml_content}
-            operation.confirmation_code = ds_order
-            operation.response_code = VPOSRedsys._format_ds_response_code(ds_response) + errormsg
-            operation.save()
-            dlprint("Operation {0} actualizada en _receiveConfirmationSOAP()".format(operation.operation_number))
-            dlprint(u"Ds_Response={0} Ds_ErrorCode={1}".format(ds_response, ds_errorcode))
-            vpos = operation.virtual_point_of_sale
+                operation.confirmation_data = {"GET": "", "POST": xml_content}
+                operation.confirmation_code = ds_order
+                operation.response_code = VPOSRedsys._format_ds_response_code(ds_response) + errormsg
+                operation.save()
+                dlprint("Operation {0} actualizada en _receiveConfirmationSOAP()".format(operation.operation_number))
+                dlprint(u"Ds_Response={0} Ds_ErrorCode={1}".format(ds_response, ds_errorcode))
 
         except VPOSPaymentOperation.DoesNotExist:
             # Si no existe la operación, están intentando
             # cargar una operación inexistente
             return False
 
+        except VPOSRefundOperation.DoesNotExist:
+            # Si no existe la operación, están intentando
+            # cargar una operación inexistente
+            return False
+
         # Iniciamos el delegado y la operación, esto es fundamental
         # para luego calcular la firma
+        vpos = operation.virtual_point_of_sale
         vpos._init_delegated()
         vpos.operation = operation
 
@@ -1933,7 +1988,7 @@ class VPOSRedsys(VirtualPointOfSale):
         # no nos importa el tipo de confirmación.
         if self.operative_type == PREAUTHORIZATION_TYPE:
             # Cuando se tiene habilitada política de preautorización.
-            dlprint("Confirmar medinate política de preautorizacion")
+            dlprint("Confirmar mediante política de preautorizacion")
             if self._confirm_preauthorization():
                 return HttpResponse("OK")
             else:
@@ -1980,7 +2035,7 @@ class VPOSRedsys(VirtualPointOfSale):
             return HttpResponse("")
 
         elif self.soap_request:
-            dlprint("responseOk SOAP")
+            dlprint("responseNok SOAP")
             # Respuesta a notificación HTTP SOAP
             response = '<Response Ds_Version="0.0"><Ds_Response_Merchant>KO</Ds_Response_Merchant></Response>'
 
@@ -2006,7 +2061,9 @@ class VPOSRedsys(VirtualPointOfSale):
             # que la operación ha sido negativa, pasamos una respuesta vacia
             return HttpResponse("")
 
-    def refund(self, refund_amount, description):
+    ####################################################################
+    ## Paso R1 (Refund) Configura el TPV en modo devolución y ejecuta la operación
+    def refund(self, operation_sale_code, refund_amount, description):
 
         """
         Implementación particular del mátodo de devolución para el TPV de Redsys.
@@ -2125,14 +2182,77 @@ class VPOSRedsys(VirtualPointOfSale):
             # No aparece mensaje de error ni de ok
             else:
                 raise VPOSOperationException("La resupuesta HTML con la pantalla de devolución "
-                                             "no muestra mensaje informado de forma expícita,"
-                                             "si la operación se produce con éxito error, (revisar método 'VPOSRedsys.refund').")
+                                             "no muestra mensaje informado de forma expícita "
+                                             "si la operación se produce con éxito o error. Revisar método 'VPOSRedsys.refund'.")
 
         # Respuesta HTTP diferente a 200
         else:
             status = False
 
         return status
+
+    ####################################################################
+    ## Paso R2.a. Respuesta positiva a confirmación asíncrona de refund
+    def refund_response_ok(self, extended_status=""):
+        if self.soap_request:
+            dlprint("refund_response_ok SOAP")
+            # Respuesta a notificación HTTP SOAP
+            response = '<Response Ds_Version="0.0"><Ds_Response_Merchant>OK</Ds_Response_Merchant></Response>'
+
+            dlprint("FIRMAR RESPUESTA {response} CON CLAVE DE CIFRADO {key}".format(response=response,
+                                                                                    key=self.encryption_key))
+            signature = self._redsys_hmac_sha256_signature(response)
+
+            message = "<Message>{response}<Signature>{signature}</Signature></Message>".format(response=response,
+                                                                                               signature=signature)
+            dlprint("MENSAJE RESPUESTA CON FIRMA {0}".format(message))
+
+            # El siguiente mensaje NO debe tener espacios en blanco ni saltos de línea entre las marcas XML
+            out = "<?xml version='1.0' encoding='UTF-8'?><SOAP-ENV:Envelope xmlns:SOAP-ENV=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"><SOAP-ENV:Body><ns1:procesaNotificacionSISResponse xmlns:ns1=\"InotificacionSIS\" SOAP-ENV:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\"><result xsi:type=\"xsd:string\">{0}</result></ns1:procesaNotificacionSISResponse></SOAP-ENV:Body></SOAP-ENV:Envelope>"
+            out = out.format(cgi.escape(message))
+            dlprint("RESPUESTA SOAP:" + out)
+
+            return HttpResponse(out, "text/xml")
+
+        else:
+            dlprint(u"refund_response_ok HTTP POST (respuesta vacía)")
+            # Respuesta a notificación HTTP POST
+            # En RedSys no se exige una respuesta, por parte del comercio, para verificar
+            # la operación, pasamos una respuesta vacia
+            return HttpResponse("")
+
+
+    ####################################################################
+    ## Paso R2.b. Respuesta negativa a confirmación asíncrona de refund
+    def refund_response_nok(self, extended_status=""):
+
+        if self.soap_request:
+            dlprint("refund_response_nok SOAP")
+            # Respuesta a notificación HTTP SOAP
+            response = '<Response Ds_Version="0.0"><Ds_Response_Merchant>KO</Ds_Response_Merchant></Response>'
+
+            dlprint("FIRMAR RESPUESTA {response} CON CLAVE DE CIFRADO {key}".format(response=response,
+                                                                                    key=self.encryption_key))
+            signature = self._redsys_hmac_sha256_signature(response)
+
+            message = "<Message>{response}<Signature>{signature}</Signature></Message>".format(response=response,
+                                                                                               signature=signature)
+            dlprint("MENSAJE RESPUESTA CON FIRMA {0}".format(message))
+
+            # El siguiente mensaje NO debe tener espacios en blanco ni saltos de línea entre las marcas XML
+            out = "<?xml version='1.0' encoding='UTF-8'?><SOAP-ENV:Envelope xmlns:SOAP-ENV=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"><SOAP-ENV:Body><ns1:procesaNotificacionSISResponse xmlns:ns1=\"InotificacionSIS\" SOAP-ENV:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\"><result xsi:type=\"xsd:string\">{0}</result></ns1:procesaNotificacionSISResponse></SOAP-ENV:Body></SOAP-ENV:Envelope>"
+            out = out.format(cgi.escape(message))
+            dlprint("RESPUESTA SOAP:" + out)
+
+            return HttpResponse(out, "text/xml")
+
+        else:
+            dlprint(u"refund_response_nok HTTP POST (respuesta vacía)")
+            # Respuesta a notificación HTTP POST
+            # En RedSys no se exige una respuesta, por parte del comercio, para verificar
+            # que la operación ha sido negativa, pasamos una respuesta vacia
+            return HttpResponse("")
+
 
     def _confirm_preauthorization(self):
 
@@ -2769,7 +2889,17 @@ class VPOSPaypal(VirtualPointOfSale):
     ####################################################################
     ## Paso R. (Refund) Configura el TPV en modo devolución
     ## TODO: No implementado
-    def refund(self, refund_amount, description):
+    def refund(self, operation_sale_code, refund_amount, description):
+        raise VPOSOperationNotImplemented(u"No se ha implementado la operación de devolución particular para Paypal.")
+
+    ####################################################################
+    ## Paso R2.a. Respuesta positiva a confirmación asíncrona de refund
+    def refund_response_ok(self, extended_status=""):
+        raise VPOSOperationNotImplemented(u"No se ha implementado la operación de devolución particular para Paypal.")
+
+    ####################################################################
+    ## Paso R2.b. Respuesta negativa a confirmación asíncrona de refund
+    def refund_response_nok(self, extended_status=""):
         raise VPOSOperationNotImplemented(u"No se ha implementado la operación de devolución particular para Paypal.")
 
 
@@ -3182,9 +3312,18 @@ class VPOSSantanderElavon(VirtualPointOfSale):
     ####################################################################
     ## Paso R. (Refund) Configura el TPV en modo devolución
     ## TODO: No implementado
-    def refund(self, refund_amount, description):
+    def refund(self, operation_sale_code, refund_amount, description):
         raise VPOSOperationNotImplemented(u"No se ha implementado la operación de devolución particular para Santander-Elavon.")
 
+    ####################################################################
+    ## Paso R2.a. Respuesta positiva a confirmación asíncrona de refund
+    def refund_response_ok(self, extended_status=""):
+        raise VPOSOperationNotImplemented(u"No se ha implementado la operación de devolución particular para Santader-Elavon.")
+
+    ####################################################################
+    ## Paso R2.b. Respuesta negativa a confirmación asíncrona de refund
+    def refund_response_nok(self, extended_status=""):
+        raise VPOSOperationNotImplemented(u"No se ha implementado la operación de devolución particular para Santender-Elavon.")
 
     ####################################################################
     ## Generador de firma para el envío POST al servicio "Redirect"
@@ -3466,5 +3605,17 @@ class VPOSBitpay(VirtualPointOfSale):
         dlprint("responseNok")
         return HttpResponse("NOK")
 
-    def refund(self, refund_amount, description):
-        raise VPOSOperationNotImplemented(u"No se ha implementado la operación de devolución particular.")
+    ####################################################################
+    ## Paso R1 (Refund) Configura el TPV en modo devolución y ejecuta la operación
+    def refund(self, operation_sale_code, refund_amount, description):
+        raise VPOSOperationNotImplemented(u"No se ha implementado la operación de devolución particular para Bitpay.")
+
+    ####################################################################
+    ## Paso R2.a. Respuesta positiva a confirmación asíncrona de refund
+    def refund_response_ok(self, extended_status=""):
+        raise VPOSOperationNotImplemented(u"No se ha implementado la operación de devolución particular para Bitpay.")
+
+    ####################################################################
+    ## Paso R2.b. Respuesta negativa a confirmación asíncrona de refund
+    def refund_response_nok(self, extended_status=""):
+        raise VPOSOperationNotImplemented(u"No se ha implementado la operación de devolución particular para Bitpay.")
