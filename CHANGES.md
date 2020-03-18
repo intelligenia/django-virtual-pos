@@ -2,6 +2,9 @@
 Django module that abstracts the flow of several virtual points of sale.
 
 # Releases
+## 1.6.11
+- On refund operations, select the 'completed' VPOSPaymentOperation matching the sale_code if there are more than one
+
 ## 1.6.10
 - Managing refund async confirmations for Redsys
 

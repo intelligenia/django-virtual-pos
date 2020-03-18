@@ -539,9 +539,10 @@ class VirtualPointOfSale(models.Model):
 
         try:
             # Cargamos la operación sobre la que vamos a realizar la devolución.
-            payment_operation = VPOSPaymentOperation.objects.get(sale_code=operation_sale_code)
+            payment_operation = VPOSPaymentOperation.objects.get(sale_code=operation_sale_code, status='completed')
         except ObjectDoesNotExist:
-            raise Exception(u"No se puede cargar una operación anterior con el código {0}".format(operation_sale_code))
+            raise Exception(u"No se puede cargar una operación anterior completada con el código"
+                            u" {0}".format(operation_sale_code))
 
         if (not self.has_total_refunds) and (not self.has_partial_refunds):
             raise Exception(u"El TPV no admite devoluciones, ni totales, ni parciales")
