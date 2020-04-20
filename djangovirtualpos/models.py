@@ -1919,11 +1919,17 @@ class VPOSRedsys(VirtualPointOfSale):
         ## Iniciamos los valores recibidos en el delegado
 
         # Contenido completo de <Request>...</Request>, necesario posteriormente para cálculo de firma
-        soap_request = etree.tostring(root.xpath("//Message/Request")[0])
+        #soap_request = etree.tostring(root.xpath("//Message/Request")[0])
         # corrige autocierre de etuqueta y entrecomillado de atributos. Para la comprobación de la firma,
         # la etiqueta debe tener apertura y cierre y el atributo va entre comilla simple
-        soap_request = soap_request.replace("<Ds_MerchantData/>", "<Ds_MerchantData></Ds_MerchantData>", 1).replace('"',
-                                                                                                                    "'")
+        # soap_request = soap_request\
+        #     .replace("<Ds_MerchantData/>", "<Ds_MerchantData></Ds_MerchantData>", 1)\
+        #     .replace('"',"'")
+
+        regex = r"<Request.+</Request>"
+        matches = re.search(regex, xml_content, re.MULTILINE)
+        soap_request = matches.group(0)
+
         vpos.delegated.soap_request = soap_request
         dlprint(u"Request:" + vpos.delegated.soap_request)
 
