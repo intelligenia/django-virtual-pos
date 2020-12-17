@@ -476,7 +476,7 @@ class VirtualPointOfSale(models.Model):
     ## y otros tienen una verificación y una respuesta con "OK".
     ## En cualquier caso, es necesario que la aplicación llame a este
     ## método para terminar correctamente el proceso.
-    def charge(self):
+    def charge(self, **kwargs):
         # Bloquear otras transacciones
         VPOSPaymentOperation.objects.select_for_update().filter(id=self.operation.id)
 
@@ -1566,6 +1566,11 @@ class VPOSRedsys(VirtualPointOfSale):
         "testing": "https://sis-t.redsys.es:25443/sis/realizarPago"
     }
 
+    REDSYS_REST_URL = {
+        "production": "https://sis.redsys.es/sis/rest/trataPeticionREST",
+        "testing": "https://sis-t.redsys.es:25443/sis/rest/trataPeticionREST"
+    }
+
     # Idiomas soportados por RedSys
     IDIOMAS = {"es": "001", "en": "002", "ca": "003", "fr": "004", "de": "005", "pt": "009", "it": "007"}
 
@@ -1715,7 +1720,7 @@ class VPOSRedsys(VirtualPointOfSale):
             # Representa la suma total de los importes de las cuotas
             "DS_MERCHANT_SUMTOTAL": self.importe,
         }
-
+        url = self.url
         # En caso de que tenga referencia
         if reference_number:
             # Puede ser una petición de referencia
@@ -1727,7 +1732,15 @@ class VPOSRedsys(VirtualPointOfSale):
                     order_data["DS_MERCHANT_MERCHANTURL"] += "?request_reference=1"
             # o en cambio puede ser el envío de una referencia obtenida antes
             else:
-                order_data["DS_MERCHANT_IDENTIFIER"] = reference_number
+                # Pagos con referencia, no está el titular presente, conexión host to host (REST)
+                order_data.update({
+                    "DS_MERCHANT_DIRECTPAYMENT": True,
+                    "DS_MERCHANT_EXCEP_SCA": 'MIT',
+                    "DS_MERCHANT_IDENTIFIER": reference_number
+                })
+                del order_data["DS_MERCHANT_URLOK"]
+                del order_data["DS_MERCHANT_URLKO"]
+                url = self.REDSYS_REST_URL[self.parent.environment]
 
         json_order_data = json.dumps(order_data)
         packed_order_data = base64.b64encode(json_order_data)
@@ -1740,7 +1753,7 @@ class VPOSRedsys(VirtualPointOfSale):
 
         form_data = {
             "data": data,
-            "action": self.url,
+            "action": url,
             "enctype": "application/x-www-form-urlencoded",
             "method": "post"
         }
@@ -1990,7 +2003,7 @@ class VPOSRedsys(VirtualPointOfSale):
     ## Paso 3.3a. Realiza el cobro y genera la respuesta a la pasarela y
     ## comunicamos con la pasarela de pago para que marque la operación
     ## como pagada. Sólo se usa en CECA
-    def charge(self):
+    def charge(self, reference_number=None):
         # En caso de tener habilitada la preautorización
         # no nos importa el tipo de confirmación.
         if self.operative_type == PREAUTHORIZATION_TYPE:
@@ -2022,7 +2035,12 @@ class VPOSRedsys(VirtualPointOfSale):
             dlprint("RESPUESTA SOAP:" + out)
 
             return HttpResponse(out, "text/xml")
-
+        # Pagos con referencia, no está el titular presente, conexión host to host (REST)
+        elif reference_number:
+            # URL de pago según el entorno
+            form_data = self.getPaymentFormData(reference_number)
+            r = requests.post(form_data["action"], data=form_data["data"])
+            return r.json()
         else:
             dlprint(u"responseOk HTTP POST (respuesta vacía)")
             # Respuesta a notificación HTTP POST
