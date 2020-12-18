@@ -485,7 +485,7 @@ class VirtualPointOfSale(models.Model):
         VPOSPaymentOperation.objects.select_for_update().filter(id=self.operation.id)
 
         # Realizamos el cargo
-        response = self.delegated.charge()
+        response = self.delegated.charge(**kwargs)
         # Cambiamos el estado de la operación
         self.operation.status = "completed"
         self.operation.save()
@@ -2046,6 +2046,7 @@ class VPOSRedsys(VirtualPointOfSale):
             return HttpResponse(out, "text/xml")
         # Pagos con referencia, no está el titular presente, conexión host to host (REST)
         elif reference_number:
+            dlprint("Pago con referencia".format(reference_number))
             # URL de pago según el entorno
             form_data = self.getPaymentFormData(reference_number)
             r = requests.post(form_data["action"], data=form_data["data"])
