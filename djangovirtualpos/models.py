@@ -1769,12 +1769,16 @@ class VPOSRedsys(VirtualPointOfSale):
     ## envíe la pasarela de pago.
     @classmethod
     def receiveConfirmation(cls, request):
+        # Es una respuesta REST "normal"
+        if isinstance(request, dict) and 'Ds_MerchantParameters' in request:
+            return cls._receiveConfirmationREST(request)
+
         # Es una respuesta HTTP POST "normal"
-        if 'Ds_MerchantParameters' in request.POST:
+        if hasattr(request, 'POST') and 'Ds_MerchantParameters' in request.POST:
             return cls._receiveConfirmationHTTPPOST(request)
 
         # Es una respuesta SOAP
-        body = request.body
+        body = request.body if hasattr(request, 'body') else {}
         if "procesaNotificacionSIS" in body and "SOAP" in body:
             return cls._receiveConfirmationSOAP(request)
 
@@ -1861,6 +1865,7 @@ class VPOSRedsys(VirtualPointOfSale):
         vpos.delegated.ds_response = operation_data.get("Ds_Response")
 
         return vpos.delegated
+
 
     ####################################################################
     ## Paso 3.1.b  Procesar notificación SOAP
@@ -1970,6 +1975,87 @@ class VPOSRedsys(VirtualPointOfSale):
             # Aquí la idea es incluir más parámetros que nos puedan servir en el llamador de este módulo
         except IndexError:
             pass
+
+        return vpos.delegated
+
+    ## Paso 3.1.c  Procesar notificación REST
+    @staticmethod
+    def _receiveConfirmationREST(request):
+        dlprint(u"Notificación Redsys REST:")
+        dlprint(request)
+
+        # Almacén de operaciones
+        try:
+            operation_data = json.loads(base64.b64decode(request.get("Ds_MerchantParameters")))
+            dlprint(operation_data)
+
+            # Operation number
+            operation_number = operation_data.get("Ds_Order")
+
+            ds_transactiontype = operation_data.get("Ds_TransactionType")
+            if ds_transactiontype == "3":
+                # Operación de reembolso
+                operation = VPOSRefundOperation.objects.get(operation_number=operation_number)
+
+            else:
+                # Operación de confirmación de venta
+                operation = VPOSPaymentOperation.objects.get(operation_number=operation_number)
+
+                # Comprobar que no se trata de una operación de confirmación de compra anteriormente confirmada
+                if operation.status != "pending":
+                    raise VPOSOperationAlreadyConfirmed(u"Operación ya confirmada")
+
+                operation.confirmation_data = request
+                operation.confirmation_code = operation_number
+
+                ds_errorcode = operation_data.get("Ds_ErrorCode")
+                if ds_errorcode:
+                    errormsg = u' // ' + VPOSRedsys._format_ds_error_code(operation_data.get("Ds_ErrorCode"))
+                else:
+                    errormsg = u''
+
+                operation.response_code = VPOSRedsys._format_ds_response_code(
+                    operation_data.get("Ds_Response")) + errormsg
+                operation.save()
+                dlprint(
+                    "Operation {0} actualizada en _receiveConfirmationREST()".format(operation.operation_number))
+                dlprint(u"Ds_Response={0} Ds_ErrorCode={1}".format(operation_data.get("Ds_Response"),
+                                                                   operation_data.get("Ds_ErrorCode")))
+
+        except VPOSPaymentOperation.DoesNotExist:
+            # Si no existe la operación, están intentando
+            # cargar una operación inexistente
+            return False
+
+        except VPOSRefundOperation.DoesNotExist:
+            # Si no existe la operación, están intentando
+            # cargar una operación inexistente
+            return False
+
+        # Iniciamos el delegado y la operación, esto es fundamental para luego calcular la firma
+        vpos = operation.virtual_point_of_sale
+        vpos._init_delegated()
+        vpos.operation = operation
+
+        # Iniciamos los valores recibidos en el delegado
+
+        # Datos de la operación al completo
+        # Usado para recuperar los datos la referencia
+        vpos.delegated.ds_merchantparameters = operation_data
+
+        ## Datos que llegan por REST
+        # Firma enviada por RedSys, que más tarde compararemos con la generada por el comercio
+        vpos.delegated.firma = request.get("Ds_Signature")
+
+        # Versión del método de firma utilizado
+        vpos.delegated.signature_version = request.get("Ds_SignatureVersion")
+
+        # Parámetros de la operación (en base64 + JSON)
+        vpos.delegated.merchant_parameters = request.get("Ds_MerchantParameters")
+
+        ## Datos decodificados de Ds_MerchantParameters
+        # Respuesta de la pasarela de pagos. Indica si la operación se autoriza o no
+        vpos.delegated.ds_response = operation_data.get("Ds_Response")
 
         return vpos.delegated
 
