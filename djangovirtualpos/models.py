@@ -2049,8 +2049,16 @@ class VPOSRedsys(VirtualPointOfSale):
             dlprint("Pago con referencia".format(reference_number))
             # URL de pago según el entorno
             form_data = self.getPaymentFormData(reference_number)
+            # peticion REST
             r = requests.post(form_data["action"], data=form_data["data"])
-            return r.json()
+            # Confirma pago
+            virtual_pos = VirtualPointOfSale.receiveConfirmation(r, virtualpos_type="redsys")
+            # Verifica pago
+            if virtual_pos and virtual_pos.verifyConfirmation():
+                return virtual_pos
+            dlprint(u"responseKo REST (no confirmada o no verificada)")
+            return {}
+
         else:
             dlprint(u"responseOk HTTP POST (respuesta vacía)")
             # Respuesta a notificación HTTP POST
