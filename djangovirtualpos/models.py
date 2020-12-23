@@ -1769,6 +1769,8 @@ class VPOSRedsys(VirtualPointOfSale):
     ## envíe la pasarela de pago.
     @classmethod
     def receiveConfirmation(cls, request):
+        dlprint(type(request))
+        dlprint(request)
         # Es una respuesta REST "normal"
         if isinstance(request, dict) and 'Ds_MerchantParameters' in request:
             return cls._receiveConfirmationREST(request)
@@ -2138,7 +2140,7 @@ class VPOSRedsys(VirtualPointOfSale):
             # peticion REST
             r = requests.post(form_data["action"], data=form_data["data"])
             # Confirma pago
-            virtual_pos = VirtualPointOfSale.receiveConfirmation(r, virtualpos_type="redsys")
+            virtual_pos = VirtualPointOfSale.receiveConfirmation(r.json(), virtualpos_type="redsys")
             # Verifica pago
             if virtual_pos and virtual_pos.verifyConfirmation():
                 return virtual_pos
