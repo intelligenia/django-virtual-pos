@@ -2004,6 +2004,7 @@ class VPOSRedsys(VirtualPointOfSale):
                 operation = VPOSPaymentOperation.objects.get(operation_number=operation_number)
 
                 # Comprobar que no se trata de una operación de confirmación de compra anteriormente confirmada
+                print(operation.status)
                 if operation.status != "pending":
                     raise VPOSOperationAlreadyConfirmed(u"Operación ya confirmada")
 
