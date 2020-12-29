@@ -486,13 +486,13 @@ class VirtualPointOfSale(models.Model):
 
         # Realizamos el cargo
         response = self.delegated.charge(**kwargs)
-        
+
         if response:
             # Cambiamos el estado de la operación
             self.operation.status = "completed"
-            self.operation.save()
             dlprint("Operation {0} actualizada en charge()".format(self.operation.operation_number))
-    
+        self.operation.save()
+
         # Devolvemos el cargo
         return response
 
