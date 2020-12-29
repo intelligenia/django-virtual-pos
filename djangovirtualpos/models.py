@@ -486,11 +486,13 @@ class VirtualPointOfSale(models.Model):
 
         # Realizamos el cargo
         response = self.delegated.charge(**kwargs)
-        # Cambiamos el estado de la operación
-        self.operation.status = "completed"
-        self.operation.save()
-        dlprint("Operation {0} actualizada en charge()".format(self.operation.operation_number))
-
+        
+        if response:
+            # Cambiamos el estado de la operación
+            self.operation.status = "completed"
+            self.operation.save()
+            dlprint("Operation {0} actualizada en charge()".format(self.operation.operation_number))
+    
         # Devolvemos el cargo
         return response
 
@@ -2103,6 +2105,8 @@ class VPOSRedsys(VirtualPointOfSale):
     def charge(self, reference_number=None):
         # En caso de tener habilitada la preautorización
         # no nos importa el tipo de confirmación.
+        dlprint("tipo de operativa {0}".format(self.operative_type))
+        dlprint("SOAP request {0}".format(self.soap_request))
         if self.operative_type == PREAUTHORIZATION_TYPE:
             # Cuando se tiene habilitada política de preautorización.
             dlprint("Confirmar mediante política de preautorizacion")
@@ -2144,8 +2148,8 @@ class VPOSRedsys(VirtualPointOfSale):
             # El pago se verifica por SOAP
             # if virtual_pos and virtual_pos.verifyConfirmation():
             #     return virtual_pos
-            dlprint(u"responseKo REST (no confirmada o no verificada)")
-            return {}
+            dlprint(u"responseOK REST (esperando ser confirmada y verificada)")
+            return False
 
         else:
             dlprint(u"responseOk HTTP POST (respuesta vacía)")
