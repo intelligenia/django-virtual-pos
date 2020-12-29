@@ -10,18 +10,12 @@ def get_delegated_class(virtualpos_type):
     :return:
     """
     try:
-        # __name__ Es el nombre del módulo actual, esto es,
-        # un str con el contenido "vpos.models"
-
-        # __import__(__name__) es el objeto módulo "vpos".
-
-        # __import__(__name__, globals(), locals(), ["models"])
-        # carga el objeto módulo "vpos.models"
-        mdl = __import__(__name__, globals(), locals(), ["models"])
+        # carga el módulo "models"
+        module = __import__('.'.join(__name__.split('.')[:-1]), globals(), locals(), ["models"])
 
         # getattr obtiene un atributo de un objeto, luego sacamos el
         # objeto clase a partir de su nombre y del objeto módulo "vpos.models"
-        cls = getattr(mdl, VPOS_CLASSES[virtualpos_type])
+        cls = getattr(module, VPOS_CLASSES[virtualpos_type])
         return cls
     except KeyError:
         raise ValueError(_(u"The virtual point of sale {0} does not exist").format(virtualpos_type))
