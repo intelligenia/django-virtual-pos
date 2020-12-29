@@ -5,6 +5,9 @@ from django.forms.models import ModelMultipleChoiceField
 from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.db.models import Count
 
+import djangovirtualpos.models
+import djangovirtualpos.models.defs
+import djangovirtualpos.models.virtualpointofsale
 from djangovirtualpos import models
 
 
@@ -39,5 +42,5 @@ class VPOSField(ModelMultipleChoiceField):
                 "-type__count")
             if count[0]["type__count"] > 1:
                 raise forms.ValidationError("Asegúrese de no seleccionar más de un TPV del tipo '{0}'".format(
-                    dict(models.VPOS_TYPES)[count[0]["type"]]))
+                    dict(djangovirtualpos.models.defs.VPOS_TYPES)[count[0]["type"]]))
         return super(VPOSField, self).clean(value)

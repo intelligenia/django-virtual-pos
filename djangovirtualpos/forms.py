@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 
 from django import forms
-from models import VPOSCeca, VPOSRedsys, VPOSPaypal, VPOSSantanderElavon
+from models import VPOSCeca, VPOSPaypal, VPOSSantanderElavon
+from djangovirtualpos.models.backends.vpos_redsys import VPOSRedsys
 
 from django.conf import settings
-from models import VPOS_TYPES
+from djangovirtualpos.models.defs import VPOS_TYPES
 
 
 class TrimForm(forms.ModelForm):
