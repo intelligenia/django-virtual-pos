@@ -5,7 +5,7 @@ import json
 import logging
 import random
 import re
-from xml import etree
+from lxml import etree
 
 import requests
 from Crypto.Cipher import DES3
@@ -22,12 +22,16 @@ from djangovirtualpos.util import dictlist
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+ch = logging.StreamHandler()
+formatter = logging.Formatter("[%(filename)s:%(lineno)s - %(funcName)20s() ] %(message)s")
+ch.setFormatter(formatter)
+logger.addHandler(ch)
 
 AUTHORIZATION_TYPE = "authorization"
 PREAUTHORIZATION_TYPE = "pre-authorization"
 OPERATIVE_TYPES = (
-    (AUTHORIZATION_TYPE, u"autorización"),
-    (PREAUTHORIZATION_TYPE, u"pre-autorización"),
+    (AUTHORIZATION_TYPE, u"Pago normal (\"autorización\")"),
+    (PREAUTHORIZATION_TYPE, u"Preautorización"),
 )
 
 

@@ -82,7 +82,7 @@ class VPOSPaypal(VirtualPointOfSale):
 
     @classmethod
     def form(cls):
-        from forms import VPOSPaypalForm
+        from ...forms import VPOSPaypalForm
         return VPOSPaypalForm
 
     ####################################################################

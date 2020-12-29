@@ -97,7 +97,7 @@ class VPOSSantanderElavon(VirtualPointOfSale):
 
     @classmethod
     def form(cls):
-        from ..forms import VPOSSantanderElavonForm
+        from ...forms import VPOSSantanderElavonForm
         return VPOSSantanderElavonForm
 
     ####################################################################

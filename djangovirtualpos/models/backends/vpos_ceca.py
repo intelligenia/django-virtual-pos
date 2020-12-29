@@ -112,7 +112,7 @@ class VPOSCeca(VirtualPointOfSale):
 
     @classmethod
     def form(cls):
-        from forms import VPOSCecaForm
+        from ...forms import VPOSCecaForm
         return VPOSCecaForm
 
     ####################################################################
