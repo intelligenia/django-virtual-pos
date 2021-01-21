@@ -2143,11 +2143,12 @@ class VPOSRedsys(VirtualPointOfSale):
             form_data = self.getPaymentFormData(reference_number)
             # peticion REST
             r = requests.post(form_data["action"], data=form_data["data"])
-            # El pago se confirma por SOAP
-            # virtual_pos = VirtualPointOfSale.receiveConfirmation(r.json(), virtualpos_type="redsys")
-            # El pago se verifica por SOAP
-            # if virtual_pos and virtual_pos.verifyConfirmation():
-            #     return virtual_pos
+            # El pago se confirma por REST
+            virtual_pos = VirtualPointOfSale.receiveConfirmation(r.json(), virtualpos_type="redsys")
+            # El pago se verifica por REST
+            if virtual_pos and virtual_pos.verifyConfirmation():
+                dlprint(u"responseOK REST")
+                return virtual_pos
             dlprint(u"responseOK REST (esperando ser confirmada y verificada)")
             return False
 
