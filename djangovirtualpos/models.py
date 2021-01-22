@@ -1774,7 +1774,7 @@ class VPOSRedsys(VirtualPointOfSale):
         dlprint(type(request))
         dlprint(request)
         # Es una respuesta REST "normal"
-        if isinstance(request, dict) and 'Ds_MerchantParameters' in request:
+        if isinstance(request, dict) and ('Ds_MerchantParameters' in request or 'errorCode' in request):
             return cls._receiveConfirmationREST(request)
 
         # Es una respuesta HTTP POST "normal"
