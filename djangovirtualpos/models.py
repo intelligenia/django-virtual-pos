@@ -1978,11 +1978,13 @@ class VPOSRedsys(VirtualPointOfSale):
 
     ## Paso 3.1.c  Procesar notificación REST
     @staticmethod
-    def _receiveConfirmationREST(request, operation):
+    def _receiveConfirmationREST(request, operation_number):
         dlprint(u"Notificación Redsys REST:")
         dlprint(request)
 
         if 'errorCode' in request:
+            # Operación de confirmación de venta
+            operation = VPOSPaymentOperation.objects.get(operation_number=operation_number)
             operation.response_code = u' // ' + VPOSRedsys._format_ds_error_code(request.get("errorCode"))
             operation.save()
             dlprint("Operation {0} actualizada en _receiveConfirmationREST()".format(operation.operation_number))
@@ -2107,7 +2109,7 @@ class VPOSRedsys(VirtualPointOfSale):
     ## Paso 3.3a. Realiza el cobro y genera la respuesta a la pasarela y
     ## comunicamos con la pasarela de pago para que marque la operación
     ## como pagada. Sólo se usa en CECA
-    def charge(self, operation=None):
+    def charge(self, operation=None, reference_number=None):
         # En caso de tener habilitada la preautorización
         # no nos importa el tipo de confirmación.
         dlprint("tipo de operativa {0}".format(self.operative_type))
@@ -2142,8 +2144,7 @@ class VPOSRedsys(VirtualPointOfSale):
 
             return HttpResponse(out, "text/xml")
         # Pagos con referencia, no está el titular presente, conexión host to host (REST)
-        elif operation:
-            reference_number = operation.reference.reference_number
+        elif operation and reference_number:
             dlprint("Pago con referencia".format(reference_number))
             # URL de pago según el entorno
             form_data = self.getPaymentFormData(reference_number)
