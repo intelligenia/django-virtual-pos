@@ -1989,11 +1989,7 @@ class VPOSRedsys(VirtualPointOfSale):
             operation.save()
             dlprint("Operation {0} actualizada en _receiveConfirmationREST()".format(operation.operation_number))
             dlprint(u"errorCode={0}".format(request.get("errorCode")))
-            # Iniciamos el delegado y la operación
-            vpos = operation.virtual_point_of_sale
-            vpos._init_delegated()
-            vpos.operation = operation
-            return vpos.delegated
+            return False
 
         # Almacén de operaciones
         try:
@@ -2156,7 +2152,7 @@ class VPOSRedsys(VirtualPointOfSale):
             if virtual_pos and virtual_pos.verifyConfirmation():
                 dlprint(u"responseOK REST")
                 return virtual_pos
-            dlprint(u"responseOK REST (esperando ser confirmada y verificada)")
+            dlprint(u"responseKO REST")
             return False
 
         else:
