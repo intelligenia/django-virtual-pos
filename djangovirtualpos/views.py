@@ -8,7 +8,7 @@ from django.http import Http404, HttpResponseRedirect
 from django.shortcuts import render, get_object_or_404
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
-from djangovirtualpos.models import VirtualPointOfSale, VPOSCantCharge
+from djangovirtualpos.models import VirtualPointOfSale, VPOSCantCharge, VPOSRedsys
 
 
 from django.http import JsonResponse
@@ -115,7 +115,16 @@ def confirm_payment(request, virtualpos_type, sale_model):
                 # this method will mark this payment as paid and will
                 # store the payment date and time.
                 payment.virtual_pos = virtual_pos
-                payment.online_confirm()
+
+                # Para el pago por referencia de Redsys
+                if hasattr(virtual_pos, "delegated") and type(virtual_pos.delegated) == VPOSRedsys:
+                    print virtual_pos.delegated
+                    print virtual_pos.delegated.ds_merchantparameters
+                    reference_number = virtual_pos.delegated.ds_merchantparameters.get("Ds_Merchant_Identifier")
+                    expiration_date = virtual_pos.delegated.ds_merchantparameters.get("Ds_ExpiryDate")
+                    payment.online_confirm(reference=reference_number, expiration_date=expiration_date)
+                else:
+                    payment.online_confirm()
             except VPOSCantCharge as e:
                 return virtual_pos.responseNok(extended_status=e)
             except Exception as e:
