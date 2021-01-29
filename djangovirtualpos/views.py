@@ -117,11 +117,13 @@ def confirm_payment(request, virtualpos_type, sale_model):
                 payment.virtual_pos = virtual_pos
 
                 # Para el pago por referencia de Redsys
+                reference_number = expiration_date = None
                 if hasattr(virtual_pos, "delegated") and type(virtual_pos.delegated) == VPOSRedsys:
                     print virtual_pos.delegated
                     print virtual_pos.delegated.ds_merchantparameters
                     reference_number = virtual_pos.delegated.ds_merchantparameters.get("Ds_Merchant_Identifier")
                     expiration_date = virtual_pos.delegated.ds_merchantparameters.get("Ds_ExpiryDate")
+                if reference_number:
                     payment.online_confirm(reference=reference_number, expiration_date=expiration_date)
                 else:
                     payment.online_confirm()
