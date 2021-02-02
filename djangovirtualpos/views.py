@@ -124,8 +124,11 @@ def confirm_payment(request, virtualpos_type, sale_model):
                     reference_number = virtual_pos.delegated.ds_merchantparameters.get("Ds_Merchant_Identifier")
                     expiration_date = virtual_pos.delegated.ds_merchantparameters.get("Ds_ExpiryDate")
                 if reference_number:
+                    print(u"Online Confirm: Reference number")
+                    print(reference_number)
                     payment.online_confirm(reference=reference_number, expiration_date=expiration_date)
                 else:
+                    print(u"Online Confirm: No Reference number")
                     payment.online_confirm()
             except VPOSCantCharge as e:
                 return virtual_pos.responseNok(extended_status=e)
