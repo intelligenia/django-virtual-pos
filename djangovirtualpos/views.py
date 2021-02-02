@@ -109,7 +109,7 @@ def confirm_payment(request, virtualpos_type, sale_model):
 
         if verified:
             # Charge the money and answer the bank confirmation
-            try:
+            # try:
                 response = virtual_pos.charge()
                 # Implement the online_confirm method in your payment
                 # this method will mark this payment as paid and will
@@ -130,10 +130,10 @@ def confirm_payment(request, virtualpos_type, sale_model):
                 else:
                     print(u"Online Confirm: No Reference number")
                     payment.online_confirm()
-            except VPOSCantCharge as e:
-                return virtual_pos.responseNok(extended_status=e)
-            except Exception as e:
-                return virtual_pos.responseNok("cant_charge")
+            # except VPOSCantCharge as e:
+            #     return virtual_pos.responseNok(extended_status=e)
+            # except Exception as e:
+            #     return virtual_pos.responseNok("cant_charge")
 
         else:
             # Payment could not be verified
