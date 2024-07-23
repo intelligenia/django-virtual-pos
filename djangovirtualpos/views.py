@@ -8,7 +8,7 @@ from django.http import Http404, HttpResponseRedirect
 from django.shortcuts import render, get_object_or_404
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
-from djangovirtualpos.models import VirtualPointOfSale, VPOSCantCharge
+from djangovirtualpos.models import VirtualPointOfSale, VPOSCantCharge, VPOSRedsys
 
 
 from django.http import JsonResponse
@@ -109,17 +109,31 @@ def confirm_payment(request, virtualpos_type, sale_model):
 
         if verified:
             # Charge the money and answer the bank confirmation
-            try:
+            # try:
                 response = virtual_pos.charge()
                 # Implement the online_confirm method in your payment
                 # this method will mark this payment as paid and will
                 # store the payment date and time.
                 payment.virtual_pos = virtual_pos
-                payment.online_confirm()
-            except VPOSCantCharge as e:
-                return virtual_pos.responseNok(extended_status=e)
-            except Exception as e:
-                return virtual_pos.responseNok("cant_charge")
+
+                # Para el pago por referencia de Redsys
+                reference_number = expiration_date = None
+                if hasattr(virtual_pos, "delegated") and type(virtual_pos.delegated) == VPOSRedsys:
+                    print virtual_pos.delegated
+                    print virtual_pos.delegated.ds_merchantparameters
+                    reference_number = virtual_pos.delegated.ds_merchantparameters.get("Ds_Merchant_Identifier")
+                    expiration_date = virtual_pos.delegated.ds_merchantparameters.get("Ds_ExpiryDate")
+                if reference_number:
+                    print(u"Online Confirm: Reference number")
+                    print(reference_number)
+                    payment.online_confirm(reference=reference_number, expiration_date=expiration_date)
+                else:
+                    print(u"Online Confirm: No Reference number")
+                    payment.online_confirm()
+            # except VPOSCantCharge as e:
+            #     return virtual_pos.responseNok(extended_status=e)
+            # except Exception as e:
+            #     return virtual_pos.responseNok("cant_charge")
 
         else:
             # Payment could not be verified

@@ -40,7 +40,6 @@ from django.utils.translation import ugettext_lazy as _
 import requests
 from bs4 import BeautifulSoup
 
-
 VPOS_TYPES = (
     ("ceca", _("TPV Virtual - Confederación Española de Cajas de Ahorros (CECA)")),
     ("paypal", _("Paypal")),
@@ -99,13 +98,13 @@ VPOS_REFUND_STATUS_CHOICES = (
     ("failed", _(u"Failed")),
 )
 
-
 ####################################################################
 ## Tipos de estado del TPV
 VIRTUALPOS_STATE_TYPES = (
     ("testing", "Pruebas"),
     ("production", "Producción")
 )
+
 
 ####################################################################
 ## Operación de pago de TPV
@@ -137,8 +136,10 @@ class VPOSPaymentOperation(models.Model):
     last_update_datetime = models.DateTimeField(verbose_name="Fecha de última actualización del objeto")
 
     type = models.CharField(max_length=16, choices=VPOS_TYPES, default="", verbose_name="Tipo de TPV")
-    virtual_point_of_sale = models.ForeignKey("VirtualPointOfSale", parent_link=True, related_name="payment_operations", null=False)
-    environment = models.CharField(max_length=255, choices=VIRTUALPOS_STATE_TYPES, default="", blank=True, verbose_name="Entorno del TPV")
+    virtual_point_of_sale = models.ForeignKey("VirtualPointOfSale", parent_link=True, related_name="payment_operations",
+                                              null=False)
+    environment = models.CharField(max_length=255, choices=VIRTUALPOS_STATE_TYPES, default="", blank=True,
+                                   verbose_name="Entorno del TPV")
 
     @property
     def vpos(self):
@@ -163,7 +164,6 @@ class VPOSPaymentOperation(models.Model):
 
         self.save()
 
-
     ## Guarda el objeto en BD, en realidad lo único que hace es actualizar los datetimes
     def save(self, *args, **kwargs):
         """
@@ -187,14 +187,18 @@ class VPOSPaymentOperation(models.Model):
 # Excepción para indicar que la operación charge ha devuelto una respuesta incorrecta o de fallo
 class VPOSCantCharge(Exception): pass
 
+
 # Excepción para indicar que no se ha implementado una operación para un tipo de TPV en particular.
 class VPOSOperationNotImplemented(Exception): pass
+
 
 # Cuando se produce un error al realizar una operación en concreto.
 class VPOSOperationException(Exception): pass
 
+
 # La operacióm ya fue confirmada anteriormente mediante otra notificación recibida
 class VPOSOperationAlreadyConfirmed(Exception): pass
+
 
 ####################################################################
 ## Clase que contiene las operaciones de pago de forma genérica
@@ -476,21 +480,21 @@ class VirtualPointOfSale(models.Model):
     ## y otros tienen una verificación y una respuesta con "OK".
     ## En cualquier caso, es necesario que la aplicación llame a este
     ## método para terminar correctamente el proceso.
-    def charge(self):
+    def charge(self, **kwargs):
         # Bloquear otras transacciones
         VPOSPaymentOperation.objects.select_for_update().filter(id=self.operation.id)
 
         # Realizamos el cargo
-        response = self.delegated.charge()
-        # Cambiamos el estado de la operación
-        self.operation.status = "completed"
+        response = self.delegated.charge(**kwargs)
+
+        if response:
+            # Cambiamos el estado de la operación
+            self.operation.status = "completed"
+            dlprint("Operation {0} actualizada en charge()".format(self.operation.operation_number))
         self.operation.save()
-        dlprint("Operation {0} actualizada en charge()".format(self.operation.operation_number))
 
         # Devolvemos el cargo
         return response
-
-
 
     ####################################################################
     ## Paso 3.3b1. Error en verificación.
@@ -582,13 +586,11 @@ class VirtualPointOfSale(models.Model):
 
         return refund_response
 
-
     ####################################################################
     ## Paso R2.a. Respuesta positiva a confirmación asíncrona de refund
     def refund_response_ok(self, extended_status=""):
         dlprint("vpos.refund_response_ok")
         return self.delegated.refund_response_ok()
-
 
     ####################################################################
     ## Paso R2.b. Respuesta negativa a confirmación asíncrona de refund
@@ -603,20 +605,21 @@ class VPOSRefundOperation(models.Model):
     Entidad que gestiona las devoluciones de pagos realizados.
     Las devoluciones pueden ser totales o parciales, por tanto un "pago" tiene una relación uno a muchos con "devoluciones".
     """
-    amount = models.DecimalField(max_digits=6, decimal_places=2, null=False, blank=False, verbose_name=u"Cantidad de la devolución")
-    description = models.CharField(max_length=512, null=False, blank=False, verbose_name=u"Descripción de la devolución")
+    amount = models.DecimalField(max_digits=6, decimal_places=2, null=False, blank=False,
+                                 verbose_name=u"Cantidad de la devolución")
+    description = models.CharField(max_length=512, null=False, blank=False,
+                                   verbose_name=u"Descripción de la devolución")
 
     operation_number = models.CharField(max_length=255, null=False, blank=False, verbose_name=u"Número de operación")
-    status = models.CharField(max_length=64, choices=VPOS_REFUND_STATUS_CHOICES, null=False, blank=False, verbose_name=u"Estado de la devolución")
+    status = models.CharField(max_length=64, choices=VPOS_REFUND_STATUS_CHOICES, null=False, blank=False,
+                              verbose_name=u"Estado de la devolución")
     creation_datetime = models.DateTimeField(verbose_name="Fecha de creación del objeto")
     last_update_datetime = models.DateTimeField(verbose_name="Fecha de última actualización del objeto")
     payment = models.ForeignKey(VPOSPaymentOperation, on_delete=models.PROTECT, related_name="refund_operations")
 
-
     @property
     def virtual_point_of_sale(self):
         return self.payment.virtual_point_of_sale
-
 
     ## Guarda el objeto en BD, en realidad lo único que hace es actualizar los datetimes
     def save(self, *args, **kwargs):
@@ -651,7 +654,8 @@ class VPOSCeca(VirtualPointOfSale):
     # Al poner el signo "+" como "related_name" evitamos que desde el padre
     # se pueda seguir la relación hasta aquí (ya que cada uno de las clases
     # que heredan de ella estará en una tabla y sería un lío).
-    parent = models.OneToOneField(VirtualPointOfSale, parent_link=True, related_name="+", null=False, db_column="vpos_id")
+    parent = models.OneToOneField(VirtualPointOfSale, parent_link=True, related_name="+", null=False,
+                                  db_column="vpos_id")
 
     # Identifica al comercio, será facilitado por la caja en el proceso de alta
     merchant_id = models.CharField(max_length=9, null=False, blank=False, verbose_name="MerchantID",
@@ -1024,7 +1028,8 @@ OPERATIVE_TYPES = (
 class VPOSRedsys(VirtualPointOfSale):
     """Información de configuración del TPV Virtual Redsys"""
     ## Todo TPV tiene una relación con los datos generales del TPV
-    parent = models.OneToOneField(VirtualPointOfSale, parent_link=True, related_name="+", null=False, db_column="vpos_id")
+    parent = models.OneToOneField(VirtualPointOfSale, parent_link=True, related_name="+", null=False,
+                                  db_column="vpos_id")
 
     # Expresión regular usada en la identificación del servidor
     regex_number = re.compile("^\d*$")
@@ -1042,7 +1047,8 @@ class VPOSRedsys(VirtualPointOfSale):
 
     # Habilita mecanismo de preautorización + confirmación o anulación.
 
-    operative_type = models.CharField(max_length=512, choices=OPERATIVE_TYPES, default=AUTHORIZATION_TYPE, verbose_name=u"Tipo de operativa")
+    operative_type = models.CharField(max_length=512, choices=OPERATIVE_TYPES, default=AUTHORIZATION_TYPE,
+                                      verbose_name=u"Tipo de operativa")
 
     # Clave de cifrado SHA-256 para el entorno de prueba
     encryption_key_testing_sha256 = models.CharField(max_length=64, null=True, default=None,
@@ -1566,6 +1572,11 @@ class VPOSRedsys(VirtualPointOfSale):
         "testing": "https://sis-t.redsys.es:25443/sis/realizarPago"
     }
 
+    REDSYS_REST_URL = {
+        "production": "https://sis.redsys.es/sis/rest/trataPeticionREST",
+        "testing": "https://sis-t.redsys.es:25443/sis/rest/trataPeticionREST"
+    }
+
     # Idiomas soportados por RedSys
     IDIOMAS = {"es": "001", "en": "002", "ca": "003", "fr": "004", "de": "005", "pt": "009", "it": "007"}
 
@@ -1715,7 +1726,7 @@ class VPOSRedsys(VirtualPointOfSale):
             # Representa la suma total de los importes de las cuotas
             "DS_MERCHANT_SUMTOTAL": self.importe,
         }
-
+        url = self.url
         # En caso de que tenga referencia
         if reference_number:
             # Puede ser una petición de referencia
@@ -1727,7 +1738,15 @@ class VPOSRedsys(VirtualPointOfSale):
                     order_data["DS_MERCHANT_MERCHANTURL"] += "?request_reference=1"
             # o en cambio puede ser el envío de una referencia obtenida antes
             else:
-                order_data["DS_MERCHANT_IDENTIFIER"] = reference_number
+                # Pagos con referencia, no está el titular presente, conexión host to host (REST)
+                order_data.update({
+                    "DS_MERCHANT_DIRECTPAYMENT": True,
+                    "DS_MERCHANT_EXCEP_SCA": 'MIT',
+                    "DS_MERCHANT_IDENTIFIER": reference_number
+                })
+                del order_data["DS_MERCHANT_URLOK"]
+                del order_data["DS_MERCHANT_URLKO"]
+                url = self.REDSYS_REST_URL[self.parent.environment]
 
         json_order_data = json.dumps(order_data)
         packed_order_data = base64.b64encode(json_order_data)
@@ -1740,7 +1759,7 @@ class VPOSRedsys(VirtualPointOfSale):
 
         form_data = {
             "data": data,
-            "action": self.url,
+            "action": url,
             "enctype": "application/x-www-form-urlencoded",
             "method": "post"
         }
@@ -1796,14 +1815,17 @@ class VPOSRedsys(VirtualPointOfSale):
 
                 ds_errorcode = operation_data.get("Ds_ErrorCode")
                 if ds_errorcode:
-                 errormsg = u' // ' + VPOSRedsys._format_ds_error_code(operation_data.get("Ds_ErrorCode"))
+                    errormsg = u' // ' + VPOSRedsys._format_ds_error_code(operation_data.get("Ds_ErrorCode"))
                 else:
                     errormsg = u''
 
-                operation.response_code = VPOSRedsys._format_ds_response_code(operation_data.get("Ds_Response")) + errormsg
+                operation.response_code = VPOSRedsys._format_ds_response_code(
+                    operation_data.get("Ds_Response")) + errormsg
                 operation.save()
-                dlprint("Operation {0} actualizada en _receiveConfirmationHTTPPOST()".format(operation.operation_number))
-                dlprint(u"Ds_Response={0} Ds_ErrorCode={1}".format(operation_data.get("Ds_Response"), operation_data.get("Ds_ErrorCode")))
+                dlprint(
+                    "Operation {0} actualizada en _receiveConfirmationHTTPPOST()".format(operation.operation_number))
+                dlprint(u"Ds_Response={0} Ds_ErrorCode={1}".format(operation_data.get("Ds_Response"),
+                                                                   operation_data.get("Ds_ErrorCode")))
 
         except VPOSPaymentOperation.DoesNotExist:
             # Si no existe la operación, están intentando
@@ -1841,6 +1863,7 @@ class VPOSRedsys(VirtualPointOfSale):
         vpos.delegated.ds_response = operation_data.get("Ds_Response")
 
         return vpos.delegated
+
 
     ####################################################################
     ## Paso 3.1.b  Procesar notificación SOAP
@@ -1919,7 +1942,7 @@ class VPOSRedsys(VirtualPointOfSale):
         ## Iniciamos los valores recibidos en el delegado
 
         # Contenido completo de <Request>...</Request>, necesario posteriormente para cálculo de firma
-        #soap_request = etree.tostring(root.xpath("//Message/Request")[0])
+        # soap_request = etree.tostring(root.xpath("//Message/Request")[0])
         # corrige autocierre de etuqueta y entrecomillado de atributos. Para la comprobación de la firma,
         # la etiqueta debe tener apertura y cierre y el atributo va entre comilla simple
         # soap_request = soap_request\
@@ -1943,11 +1966,105 @@ class VPOSRedsys(VirtualPointOfSale):
         # Usado para recuperar los datos la referencia
         vpos.delegated.ds_merchantparameters = {}
         try:
-            vpos.delegated.ds_merchantparameters["Ds_Merchant_Identifier"] = root.xpath("//Message/Request/Ds_Merchant_Identifier/text()")[0]
-            vpos.delegated.ds_merchantparameters["Ds_ExpiryDate"] = root.xpath("//Message/Request/Ds_ExpiryDate/text()")[0]
+            vpos.delegated.ds_merchantparameters["Ds_Merchant_Identifier"] = \
+            root.xpath("//Message/Request/Ds_Merchant_Identifier/text()")[0]
+            vpos.delegated.ds_merchantparameters["Ds_ExpiryDate"] = \
+            root.xpath("//Message/Request/Ds_ExpiryDate/text()")[0]
             # Aquí la idea es incluir más parámetros que nos puedan servir en el llamador de este módulo
         except IndexError:
             pass
+
+        return vpos.delegated
+
+    ## Paso 3.1.c  Procesar notificación REST
+    @staticmethod
+    def _receiveConfirmationREST(request, operation_number):
+        dlprint(u"Notificación Redsys REST:")
+        dlprint(request)
+
+        if 'errorCode' in request:
+            # Operación de confirmación de venta
+            operation = VPOSPaymentOperation.objects.get(operation_number=operation_number)
+            operation.response_code = u' // ' + VPOSRedsys._format_ds_error_code(request.get("errorCode"))
+            operation.save()
+            dlprint("Operation {0} actualizada en _receiveConfirmationREST()".format(operation.operation_number))
+            dlprint(u"errorCode={0}".format(request.get("errorCode")))
+            return False
+
+        # Almacén de operaciones
+        try:
+            operation_data = json.loads(base64.b64decode(request.get("Ds_MerchantParameters")))
+            dlprint(operation_data)
+
+            # Operation number
+            operation_number = operation_data.get("Ds_Order")
+
+            ds_transactiontype = operation_data.get("Ds_TransactionType")
+            if ds_transactiontype == "3":
+                # Operación de reembolso
+                operation = VPOSRefundOperation.objects.get(operation_number=operation_number)
+
+            else:
+                # Operación de confirmación de venta
+                operation = VPOSPaymentOperation.objects.get(operation_number=operation_number)
+
+                # Comprobar que no se trata de una operación de confirmación de compra anteriormente confirmada
+                print(u"Operation: {}".format(operation.operation_number))
+                print(u"Operation status: {}".format(operation.status))
+                if operation.status != "pending":
+                    raise VPOSOperationAlreadyConfirmed(u"Operación ya confirmada")
+
+                operation.confirmation_data = request
+                operation.confirmation_code = operation_number
+
+                ds_errorcode = operation_data.get("Ds_ErrorCode")
+                if ds_errorcode:
+                    errormsg = u' // ' + VPOSRedsys._format_ds_error_code(operation_data.get("Ds_ErrorCode"))
+                else:
+                    errormsg = u''
+
+                operation.response_code = VPOSRedsys._format_ds_response_code(
+                    operation_data.get("Ds_Response")) + errormsg
+                operation.save()
+                dlprint(
+                    "Operation {0} actualizada en _receiveConfirmationREST()".format(operation.operation_number))
+                dlprint(u"Ds_Response={0} Ds_ErrorCode={1}".format(operation_data.get("Ds_Response"),
+                                                                   operation_data.get("Ds_ErrorCode")))
+
+        except VPOSPaymentOperation.DoesNotExist:
+            # Si no existe la operación, están intentando
+            # cargar una operación inexistente
+            return False
+
+        except VPOSRefundOperation.DoesNotExist:
+            # Si no existe la operación, están intentando
+            # cargar una operación inexistente
+            return False
+
+        # Iniciamos el delegado y la operación, esto es fundamental para luego calcular la firma
+        vpos = operation.virtual_point_of_sale
+        vpos._init_delegated()
+        vpos.operation = operation
+
+        # Iniciamos los valores recibidos en el delegado
+
+        # Datos de la operación al completo
+        # Usado para recuperar los datos la referencia
+        vpos.delegated.ds_merchantparameters = operation_data
+
+        ## Datos que llegan por REST
+        # Firma enviada por RedSys, que más tarde compararemos con la generada por el comercio
+        vpos.delegated.firma = request.get("Ds_Signature")
+
+        # Versión del método de firma utilizado
+        vpos.delegated.signature_version = request.get("Ds_SignatureVersion")
+
+        # Parámetros de la operación (en base64 + JSON)
+        vpos.delegated.merchant_parameters = request.get("Ds_MerchantParameters")
+
+        ## Datos decodificados de Ds_MerchantParameters
+        # Respuesta de la pasarela de pagos. Indica si la operación se autoriza o no
+        vpos.delegated.ds_response = operation_data.get("Ds_Response")
 
         return vpos.delegated
 
@@ -1983,16 +2100,18 @@ class VPOSRedsys(VirtualPointOfSale):
             dlprint(u"Transacción no autorizada por RedSys. Ds_Response es {0} (no está entre 0000-0099)".format(
                 self.ds_response))
             return False
-        
+
         return True
 
     ####################################################################
     ## Paso 3.3a. Realiza el cobro y genera la respuesta a la pasarela y
     ## comunicamos con la pasarela de pago para que marque la operación
     ## como pagada. Sólo se usa en CECA
-    def charge(self):
+    def charge(self, operation=None, reference_number=None):
         # En caso de tener habilitada la preautorización
         # no nos importa el tipo de confirmación.
+        dlprint("tipo de operativa {0}".format(self.operative_type))
+        dlprint("SOAP request {0}".format(self.soap_request))
         if self.operative_type == PREAUTHORIZATION_TYPE:
             # Cuando se tiene habilitada política de preautorización.
             dlprint("Confirmar mediante política de preautorizacion")
@@ -2022,6 +2141,21 @@ class VPOSRedsys(VirtualPointOfSale):
             dlprint("RESPUESTA SOAP:" + out)
 
             return HttpResponse(out, "text/xml")
+        # Pagos con referencia, no está el titular presente, conexión host to host (REST)
+        elif operation and reference_number:
+            dlprint("Pago con referencia".format(reference_number))
+            # URL de pago según el entorno
+            form_data = self.getPaymentFormData(reference_number)
+            # peticion REST
+            r = requests.post(form_data["action"], data=form_data["data"])
+            # El pago se confirma por REST
+            virtual_pos = self._receiveConfirmationREST(r.json(), operation)
+            # El pago se verifica por REST
+            if virtual_pos and virtual_pos.verifyConfirmation():
+                dlprint(u"responseOK REST")
+                return virtual_pos
+            dlprint(u"responseKO REST")
+            return False
 
         else:
             dlprint(u"responseOk HTTP POST (respuesta vacía)")
@@ -2228,7 +2362,6 @@ class VPOSRedsys(VirtualPointOfSale):
             # la operación, pasamos una respuesta vacia
             return HttpResponse("")
 
-
     ####################################################################
     ## Paso R2.b. Respuesta negativa a confirmación asíncrona de refund
     def refund_response_nok(self, extended_status=""):
@@ -2259,7 +2392,6 @@ class VPOSRedsys(VirtualPointOfSale):
             # En RedSys no se exige una respuesta, por parte del comercio, para verificar
             # que la operación ha sido negativa, pasamos una respuesta vacia
             return HttpResponse("")
-
 
     def _confirm_preauthorization(self):
 
@@ -2346,7 +2478,7 @@ class VPOSRedsys(VirtualPointOfSale):
         confirmpreauth_html_request = requests.post(self.url, data=data, headers=headers)
 
         if confirmpreauth_html_request.status_code == 200:
-            
+
             dlprint("_confirm_preauthorization status_code 200")
 
             # Iniciamos un objeto BeautifulSoup (para poder leer los elementos del DOM del HTML recibido).
@@ -2585,7 +2717,6 @@ class VPOSRedsys(VirtualPointOfSale):
 
         return out
 
-
     @staticmethod
     def _format_ds_error_code(ds_errorcode):
         """
@@ -2602,6 +2733,7 @@ class VPOSRedsys(VirtualPointOfSale):
 
         return out
 
+
 ########################################################################################################################
 ########################################################################################################################
 ###################################################### TPV PayPal ######################################################
@@ -2611,7 +2743,8 @@ class VPOSRedsys(VirtualPointOfSale):
 class VPOSPaypal(VirtualPointOfSale):
     """Información de configuración del TPV Virtual PayPal """
     ## Todo TPV tiene una relación con los datos generales del TPV
-    parent = models.OneToOneField(VirtualPointOfSale, parent_link=True, related_name="+", null=False, db_column="vpos_id")
+    parent = models.OneToOneField(VirtualPointOfSale, parent_link=True, related_name="+", null=False,
+                                  db_column="vpos_id")
 
     # nombre de usuario para la API de Paypal
     API_username = models.CharField(max_length=60, null=False, blank=False, verbose_name="API_username")
@@ -2892,7 +3025,6 @@ class VPOSPaypal(VirtualPointOfSale):
         # que la operación ha sido negativa, redireccionamos a la url de cancelación
         return redirect(reverse("payment_cancel_url", kwargs={"sale_code": self.parent.operation.sale_code}))
 
-
     ####################################################################
     ## Paso R. (Refund) Configura el TPV en modo devolución
     ## TODO: No implementado
@@ -2928,7 +3060,8 @@ class VPOSSantanderElavon(VirtualPointOfSale):
     # Al poner el signo "+" como "related_name" evitamos que desde el padre
     # se pueda seguir la relación hasta aquí (ya que cada uno de las clases
     # que heredan de ella estará en una tabla y sería un lío).
-    parent = models.OneToOneField(VirtualPointOfSale, parent_link=True, related_name="+", null=False, db_column="vpos_id")
+    parent = models.OneToOneField(VirtualPointOfSale, parent_link=True, related_name="+", null=False,
+                                  db_column="vpos_id")
 
     # Identifica al comercio, será facilitado por la caja en el proceso de alta
     merchant_id = models.CharField(max_length=50, null=False, blank=False, verbose_name="MerchantID",
@@ -3320,17 +3453,20 @@ class VPOSSantanderElavon(VirtualPointOfSale):
     ## Paso R. (Refund) Configura el TPV en modo devolución
     ## TODO: No implementado
     def refund(self, operation_sale_code, refund_amount, description):
-        raise VPOSOperationNotImplemented(u"No se ha implementado la operación de devolución particular para Santander-Elavon.")
+        raise VPOSOperationNotImplemented(
+            u"No se ha implementado la operación de devolución particular para Santander-Elavon.")
 
     ####################################################################
     ## Paso R2.a. Respuesta positiva a confirmación asíncrona de refund
     def refund_response_ok(self, extended_status=""):
-        raise VPOSOperationNotImplemented(u"No se ha implementado la operación de devolución particular para Santader-Elavon.")
+        raise VPOSOperationNotImplemented(
+            u"No se ha implementado la operación de devolución particular para Santader-Elavon.")
 
     ####################################################################
     ## Paso R2.b. Respuesta negativa a confirmación asíncrona de refund
     def refund_response_nok(self, extended_status=""):
-        raise VPOSOperationNotImplemented(u"No se ha implementado la operación de devolución particular para Santender-Elavon.")
+        raise VPOSOperationNotImplemented(
+            u"No se ha implementado la operación de devolución particular para Santender-Elavon.")
 
     ####################################################################
     ## Generador de firma para el envío POST al servicio "Redirect"
@@ -3424,6 +3560,7 @@ class VPOSSantanderElavon(VirtualPointOfSale):
 
         return firma2
 
+
 class VPOSBitpay(VirtualPointOfSale):
     """
     Pago con criptomoneda usando la plataforma bitpay.com
@@ -3447,16 +3584,22 @@ class VPOSBitpay(VirtualPointOfSale):
     # Al poner el signo "+" como "related_name" evitamos que desde el padre
     # se pueda seguir la relación hasta aquí (ya que cada uno de las clases
     # que heredan de ella estará en una tabla y sería un lío).
-    parent = models.OneToOneField(VirtualPointOfSale, parent_link=True, related_name="+", null=False, db_column="vpos_id")
-    testing_api_key = models.CharField(max_length=512, null=True, blank=True, verbose_name="API Key de Bitpay para entorno de test")
-    production_api_key = models.CharField(max_length=512, null=False, blank=False, verbose_name="API Key de Bitpay para entorno de producción")
-    currency = models.CharField(max_length=3, choices=CURRENCIES, default='EUR', null=False, blank=False, verbose_name="Moneda (EUR, USD, BTC)")
-    transaction_speed = models.CharField(max_length=10, choices=TRANSACTION_SPEED, default='medium', null=False, blank=False, verbose_name="Velocidad de la operación")
-    notification_url = models.URLField(verbose_name="Url notificaciones actualización estados (https)", null=False, blank=False)
+    parent = models.OneToOneField(VirtualPointOfSale, parent_link=True, related_name="+", null=False,
+                                  db_column="vpos_id")
+    testing_api_key = models.CharField(max_length=512, null=True, blank=True,
+                                       verbose_name="API Key de Bitpay para entorno de test")
+    production_api_key = models.CharField(max_length=512, null=False, blank=False,
+                                          verbose_name="API Key de Bitpay para entorno de producción")
+    currency = models.CharField(max_length=3, choices=CURRENCIES, default='EUR', null=False, blank=False,
+                                verbose_name="Moneda (EUR, USD, BTC)")
+    transaction_speed = models.CharField(max_length=10, choices=TRANSACTION_SPEED, default='medium', null=False,
+                                         blank=False, verbose_name="Velocidad de la operación")
+    notification_url = models.URLField(verbose_name="Url notificaciones actualización estados (https)", null=False,
+                                       blank=False)
 
     # Prefijo usado para identicar al servidor desde el que se realiza la petición, en caso de usar TPV-Proxy.
-    operation_number_prefix = models.CharField(max_length=20, null=True, blank=True, verbose_name="Prefijo del número de operación")
-
+    operation_number_prefix = models.CharField(max_length=20, null=True, blank=True,
+                                               verbose_name="Prefijo del número de operación")
 
     bitpay_url = {
         "production": {
@@ -3567,7 +3710,8 @@ class VPOSBitpay(VirtualPointOfSale):
             if operation.status != "pending":
                 raise VPOSOperationAlreadyConfirmed(u"Operación ya confirmada")
 
-            operation.confirmation_data = {"GET": request.GET.dict(), "POST": request.POST.dict(), "BODY": confirmation_body_param}
+            operation.confirmation_data = {"GET": request.GET.dict(), "POST": request.POST.dict(),
+                                           "BODY": confirmation_body_param}
             operation.save()
 
             dlprint("Operation {0} actualizada en receiveConfirmation()".format(operation.operation_number))
