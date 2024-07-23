@@ -98,3 +98,4 @@ ENV/
 *~
 
 MANIFEST
+.pypirc

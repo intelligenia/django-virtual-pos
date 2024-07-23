@@ -2480,11 +2480,13 @@ class VPOSRedsys(VirtualPointOfSale):
         if confirmpreauth_html_request.status_code == 200:
 
             dlprint("_confirm_preauthorization status_code 200")
+            dlprint("_confirm_preauthorization response_body: {0}".format(confirmpreauth_html_request.text))
 
             # Iniciamos un objeto BeautifulSoup (para poder leer los elementos del DOM del HTML recibido).
             html = BeautifulSoup(confirmpreauth_html_request.text, "html.parser")
 
-            # Buscamos elementos significativos del DOM que nos indiquen si la operación se ha realizado correctamente o no.
+            # Buscamos elementos significativos del DOM que nos indiquen si la operación se ha realizado correctamente
+            # o no.
             confirmpreauth_message_error = html.find('text', {'lngid': 'noSePuedeRealizarOperacion'})
             confirmpreauth_message_ok = html.find('text', {'lngid': 'operacionAceptada'})
 
