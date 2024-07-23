@@ -2487,8 +2487,14 @@ class VPOSRedsys(VirtualPointOfSale):
 
             # Buscamos elementos significativos del DOM que nos indiquen si la operación se ha realizado correctamente
             # o no.
-            confirmpreauth_message_error = html.find('text', {'lngid': 'noSePuedeRealizarOperacion'})
-            confirmpreauth_message_ok = html.find('text', {'lngid': 'operacionAceptada'})
+            confirmpreauth_message_error = (
+                html.find('text', {'lngid': 'noSePuedeRealizarOperacion'})
+                or html.find(lngid='noSePuedeRealizarOperacion')
+            )
+            confirmpreauth_message_ok = (
+                html.find('text', {'lngid': 'operacionAceptada'})
+                or html.find(lngid='operacionAceptada')
+            )
 
             # Cuando en el DOM del documento HTML aparece un mensaje de error.
             if confirmpreauth_message_error:
