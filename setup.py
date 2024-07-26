@@ -24,48 +24,119 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+from setuptools import setup, Command, find_packages
+from shutil import rmtree
 import os
-from setuptools import setup, find_packages
+import sys
+import io
 
-try:
-    import pypandoc
-    long_description = pypandoc.convert('README.md', 'rst')
-except(IOError, ImportError):
-    long_description = open('README.md').read()
+# Package meta-data.
+NAME = "django-virtual-pos"
+DESCRIPTION = "django-virtual-pos is a module that abstracts the flow of paying in several online payment platforms."
+URL = 'https://github.com/intelligenia/django-virtual-pos'
+EMAIL = 'mario@intelligenia.com'
+AUTHOR = 'intelligenia'
+REQUIRES_PYTHON = '>=2.7.0'
+VERSION = None
+KEYWORDS = ["virtual", "point-of-sale", "puchases", "online", "payments"]
 
-data_files = []
-for dirpath, dirnames, filenames in os.walk('.'):
-    for i, dirname in enumerate(dirnames):
-        if dirname.startswith('.'):
-            del dirnames[i]
-    if '__init__.py' in filenames:
-        continue
-    elif filenames:
-        data_files.append([dirpath, [os.path.join(dirpath, f) for f in filenames]])
+# Directory with the package
+PACKAGE = "djangovirtualpos"
+
+# What packages are required for this module to be executed?
+REQUIRED = [
+    "django",
+    "beautifulsoup4",
+    "lxml",
+    "pycrypto",
+    "pytz",
+    "requests"
+]
+
+# The rest you shouldn't have to touch too much :)
+# ------------------------------------------------
+# Except, perhaps the License and Trove Classifiers!
+# If you do change the License, remember to change the Trove Classifier for that!
+
+here = os.path.abspath(os.path.dirname(__file__))
+
+# Import the README and use it as the long-description.
+# Note: this will only work if 'README.rst' is present in your MANIFEST.in file!
+with io.open(os.path.join(here, 'README.rst'), encoding='utf-8') as f:
+    long_description = '\n' + f.read()
+
+# Load the package's __version__.py module as a dictionary.
+about = {}
+if not VERSION:
+    with open(os.path.join(here, PACKAGE, '__version__.py')) as f:
+        exec (f.read(), about)
+else:
+    about['__version__'] = VERSION
+
+
+class UploadCommand(Command):
+    """Support setup.py upload."""
+
+    description = 'Build and publish the package.'
+    user_options = []
+
+    @staticmethod
+    def status(s):
+        """Prints things in bold."""
+        print('\033[1m{0}\033[0m'.format(s))
+
+    def initialize_options(self):
+        pass
+
+    def finalize_options(self):
+        pass
+
+    def run(self):
+        try:
+            self.status('Removing previous builds…')
+            rmtree(os.path.join(here, 'dist'))
+        except OSError:
+            pass
+
+        self.status('Building Source and Wheel (universal) distribution…')
+        os.system('{0} setup.py sdist bdist_wheel --universal'.format(sys.executable))
+
+        self.status('Uploading the package to PyPi via Twine…')
+        os.system('twine upload dist/*')
+
+        self.status('Pushing git tags…')
+        os.system('git tag v{0}'.format(about['__version__']))
+        os.system('git push --tags')
+
+        sys.exit()
+
 
 setup(
-    name="django-virtual-pos",
-    version="1.2",
-    install_requires=[
-        "django",
-        "beautifulsoup4",
-        "lxml",
-        "pycrypto",
-        "pytz",
-    ],
-    author="intelligenia S.L.",
-    author_email="diego@intelligenia.es",
-    description="django-virtual-post is a module that abstracts the flow of paying in several virtual points of sale.",
+    name=NAME,
+    version=about['__version__'],
+    description=DESCRIPTION,
     long_description=long_description,
+    author=AUTHOR,
+    author_email=EMAIL,
+    python_requires=REQUIRES_PYTHON,
+    url=URL,
+    packages=find_packages(exclude=('tests',)),
+    # If your package is a single module, use this instead of 'packages':
+    # py_modules=['mypackage'],
+
+    # entry_points={
+    #     'console_scripts': ['mycli=mymodule:cli'],
+    # },
+    install_requires=REQUIRED,
+    include_package_data=True,
+    license="MIT",
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Framework :: Django',
         'License :: OSI Approved :: MIT License',
     ],
-    license="MIT",
-    keywords="virtual point-of-sale puchases online payments",
-    url='https://github.com/intelligenia/django-virtual-pos',
-    packages=find_packages('.'),
-    data_files=data_files,
-    include_package_data=True,
+    keywords=KEYWORDS,
+    cmdclass={
+        'upload': UploadCommand,
+    },
 )

@@ -1,0 +1,14 @@
+{% load staticfiles %}
+
+<script type="text/javascript">
+    var vpos_constants = {};
+    vpos_constants["SET_PAYMENT_ATTRIBUTES_URL"] = "{{url_set_payment_attributes}}";
+    vpos_constants["PAYMENT_CODE"] = "{{sale_code}}";
+    vpos_constants["URL_OK"] = "{{url_ok}}";
+    vpos_constants["URL_NOK"] = "{{url_nok}}";
+    if(!$){
+        console.error("django-virtual-pos needs jQuery and it hasn't found it");
+    }
+</script>
+
+<script src="{% static 'js/djangovirtualpos/payment/set_payment_attributes.js' %}"></script>

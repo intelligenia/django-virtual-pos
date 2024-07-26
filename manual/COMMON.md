@@ -145,4 +145,5 @@ Especificaciones particulares de cada TPV
 - [CECA](manual/vpos_types/CECA.md)
 - [PAYPAL](manual/vpos_types/PAYPAL.md)
 - [REDSYS](manual/vpos_types/REDSYS.md)
+- [BITPAY](manual/vpos_types/BITPAY.md)
 - Santander Enlavon está pendiente.
