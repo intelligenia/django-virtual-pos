@@ -30,6 +30,7 @@ def set_payment_attributes(request, sale_model, sale_ok_url, sale_nok_url, refer
     try:
         # Getting the VirtualPointOfSale object
         virtual_point_of_sale = VirtualPointOfSale.get(id=request.POST["vpos_id"], is_erased=False)
+        pay_method = request.data.get("pay_method") if request.data.get("pay_method") else ''
         # Getting Sale object
         payment_code = request.POST["payment_code"]
         sale = sale_model.objects.get(code=payment_code, status="pending")
@@ -69,11 +70,11 @@ def set_payment_attributes(request, sale_model, sale_ok_url, sale_nok_url, refer
 
     # Payment form data
     if hasattr(reference_number, "lower") and reference_number.lower() == "request":
-        form_data = virtual_point_of_sale.getPaymentFormData(reference_number="request")
+        form_data = virtual_point_of_sale.getPaymentFormData(reference_number="request", pay_method=pay_method)
     elif reference_number:
-        form_data = virtual_point_of_sale.getPaymentFormData(reference_number=reference_number)
+        form_data = virtual_point_of_sale.getPaymentFormData(reference_number=reference_number, pay_method=pay_method)
     else:
-        form_data = virtual_point_of_sale.getPaymentFormData(reference_number=False)
+        form_data = virtual_point_of_sale.getPaymentFormData(reference_number=False, pay_method=pay_method)
 
     # Debug message
     form_data["message"] = "Payment {0} updated. Returning payment attributes.".format(payment_code)
