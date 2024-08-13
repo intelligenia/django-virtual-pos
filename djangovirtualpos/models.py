@@ -1580,6 +1580,9 @@ class VPOSRedsys(VirtualPointOfSale):
     # Idiomas soportados por RedSys
     IDIOMAS = {"es": "001", "en": "002", "ca": "003", "fr": "004", "de": "005", "pt": "009", "it": "007"}
 
+    #Formas de pago soportadas por RedSýs
+    PAY_METHODS = {"tpv":"C", "bizum":"z", "paypal":"p", "transfer":"R", "masterpass":"N"}
+
     # URL de pago que variará según el entorno
     url = None
     # Importe de la venta
@@ -1688,7 +1691,7 @@ class VPOSRedsys(VirtualPointOfSale):
     ## Paso 1.3. Obtiene los datos de pago
     ## Este método será el que genere los campos del formulario de pago
     ## que se rellenarán desde el cliente (por Javascript)
-    def getPaymentFormData(self, reference_number=False):
+    def getPaymentFormData(self, pay_method='', reference_number=False):
         order_data = {
             # Indica el importe de la venta
             "DS_MERCHANT_AMOUNT": self.importe,
@@ -1722,10 +1725,15 @@ class VPOSRedsys(VirtualPointOfSale):
 
             # Indica el valor del idioma
             "DS_MERCHANT_CONSUMERLANGUAGE": self.idioma,
-
+                   
             # Representa la suma total de los importes de las cuotas
             "DS_MERCHANT_SUMTOTAL": self.importe,
         }
+        
+        #Indica el método de pago
+        if pay_method and self.PAY_METHODS.get(pay_method):
+            order_data.update({"DS_MERCHANT_PAYMETHODS":self.PAY_METHODS.get(pay_method)})
+        
         url = self.url
         # En caso de que tenga referencia
         if reference_number:
